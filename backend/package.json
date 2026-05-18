@@ -1,0 +1,35 @@
+{
+  "name": "cnpj-intelligence-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "db:up": "docker compose up -d",
+    "db:migrate:receita": "tsx src/importers/receita/migrate-receita.ts",
+    "import:empresas": "tsx src/importers/receita/import-empresas.ts",
+    "import:estabelecimentos": "tsx src/importers/receita/import-estabelecimentos.ts",
+    "import:socios": "tsx src/importers/receita/import-socios.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "@supabase/supabase-js": "^2.48.1",
+    "csv-parse": "^6.2.1",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.1",
+    "iconv-lite": "^0.7.2",
+    "pg": "^8.20.0",
+    "unzipper": "^0.12.3",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "@types/pg": "^8.20.0",
+    "@types/unzipper": "^0.10.11",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

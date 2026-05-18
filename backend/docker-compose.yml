@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cnpj-receita-postgres
+    environment:
+      POSTGRES_DB: cnpj_receita
+      POSTGRES_USER: cnpj
+      POSTGRES_PASSWORD: cnpj
+    ports:
+      - "5433:5432"
+    volumes:
+      - receita_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cnpj -d cnpj_receita"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  receita_postgres_data:
