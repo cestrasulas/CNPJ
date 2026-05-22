@@ -1,7 +1,11 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
+export function apiUrl(path: string): string {
+  return `${API_URL}${path}`;
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
-  const url = `${API_URL}${path}`;
+  const url = apiUrl(path);
   let response: Response;
 
   try {

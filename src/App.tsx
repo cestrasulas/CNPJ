@@ -12,6 +12,7 @@ import {
 import {
   obterDisponibilidadeInvestigacao,
   obterRelatorioInvestigacao,
+  obterUrlDossieInvestigacao,
   type InvestigationAvailability,
   type InvestigationRelation,
   type InvestigationReport,
@@ -1124,14 +1125,25 @@ function RelatorioInvestigacao({
     ?? gruposExploracao.find((grupo) => grupo.disponivel)
     ?? gruposExploracao[0];
   const relacoesExploradas = relations.filter((relation) => relation.type === grupoAtivo.key);
+  const abrirDossie = () => {
+    window.open(obterUrlDossieInvestigacao(target.company.cnpjBasico), "_blank", "noopener,noreferrer");
+  };
 
   return (
     <div className="mt-5 rounded-2xl border border-cyan-500/20 bg-slate-900 p-4">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-cyan-300">Relatório de Investigação</p>
-        <h3 className="mt-1 text-xl font-black text-white">
-          {target.company.razaoSocial || target.company.cnpjBasico}
-        </h3>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-cyan-300">Relatório de Investigação</p>
+          <h3 className="mt-1 text-xl font-black text-white">
+            {target.company.razaoSocial || target.company.cnpjBasico}
+          </h3>
+        </div>
+        <button
+          onClick={abrirDossie}
+          className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/20"
+        >
+          Gerar dossiê HTML
+        </button>
       </div>
 
       {/* Resumo Executivo */}
@@ -1259,6 +1271,7 @@ function RelatorioInvestigacao({
                   </p>
                   <p className="mt-1 text-xs text-cyan-300">CNPJ básico {relation.company.cnpjBasico}</p>
                   <p className="mt-1 text-xs text-slate-400">{relation.reason}</p>
+                  <ResumoEvidenciaRelation relation={relation} />
                 </button>
               ))}
             </div>
@@ -1286,6 +1299,7 @@ function RelatorioInvestigacao({
                   </p>
                   <p className="mt-1 text-xs text-cyan-300">Score {relation.score} · {relation.type}</p>
                   <p className="mt-1 text-xs text-slate-400">{relation.reason}</p>
+                  <ResumoEvidenciaRelation relation={relation} />
                 </div>
               ))}
             </div>
@@ -1367,6 +1381,29 @@ function AchadosInvestigacao({ findings }: { findings: InvestigationReport["find
   );
 }
 
+function ResumoEvidenciaRelation({ relation }: { relation: InvestigationRelation }) {
+  const evidence = relation.evidence;
+  return (
+    <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-300">
+          Evidência
+        </span>
+        <span className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${confidenceBadgeClass(evidence.confidence)}`}>
+          Confiança {evidence.confidence}
+        </span>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-slate-300">
+        <span className="font-bold text-slate-100">{evidence.field}:</span> {evidence.value || "Não informado"}
+      </p>
+      <p className="mt-1 text-xs leading-5 text-slate-400">{evidence.explanation}</p>
+      <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
+        Fonte: {evidence.source}
+      </p>
+    </div>
+  );
+}
+
 function scoreContainerClass(level: InvestigationReport["investigationScore"]["level"]): string {
   if (level === "HIGH") return "border-red-500/30 bg-red-500/10";
   if (level === "MEDIUM") return "border-amber-500/30 bg-amber-500/10";
@@ -1382,6 +1419,12 @@ function findingCardClass(severity: InvestigationReport["findings"][number]["sev
 function findingBadgeClass(severity: InvestigationReport["findings"][number]["severity"]): string {
   if (severity === "HIGH") return "bg-red-500/20 text-red-200";
   if (severity === "MEDIUM") return "bg-amber-500/20 text-amber-200";
+  return "bg-cyan-500/10 text-cyan-200";
+}
+
+function confidenceBadgeClass(confidence: InvestigationRelation["evidence"]["confidence"]): string {
+  if (confidence === "HIGH") return "bg-red-500/20 text-red-200";
+  if (confidence === "MEDIUM") return "bg-amber-500/20 text-amber-200";
   return "bg-cyan-500/10 text-cyan-200";
 }
 

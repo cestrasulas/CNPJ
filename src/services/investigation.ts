@@ -1,11 +1,22 @@
-import { apiGet } from "./api";
+import { apiGet, apiUrl } from "./api";
 import type { ReceitaEmpresa, ReceitaEstabelecimento } from "./receita";
+
+export type InvestigationRelationEvidence = {
+  source: string;
+  sourceType: "receita_local" | "provider_cache" | "manual" | "derived";
+  collectedAt: string | null;
+  field: string;
+  value: string;
+  explanation: string;
+  confidence: "LOW" | "MEDIUM" | "HIGH";
+};
 
 export type InvestigationRelation = {
   type: "same_partner" | "same_address" | "same_root" | "same_phone" | "same_email";
   score: number;
   reason: string;
   company: ReceitaEmpresa;
+  evidence: InvestigationRelationEvidence;
 };
 
 export type InvestigationGraphNode = {
@@ -90,4 +101,8 @@ export async function obterRelatorioInvestigacao(cnpjBasico: string): Promise<In
 
 export async function obterDisponibilidadeInvestigacao(cnpjBasico: string): Promise<InvestigationAvailability> {
   return apiGet<InvestigationAvailability>(`/api/investigation/company/${cnpjBasico}/availability`);
+}
+
+export function obterUrlDossieInvestigacao(cnpjBasico: string): string {
+  return apiUrl(`/api/investigation/company/${cnpjBasico}/dossier.html`);
 }

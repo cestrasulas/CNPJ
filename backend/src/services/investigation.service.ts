@@ -30,11 +30,22 @@ type Socio = {
   dataEntrada: string | null;
 };
 
+type RelationEvidence = {
+  source: string;
+  sourceType: "receita_local" | "provider_cache" | "manual" | "derived";
+  collectedAt: string | null;
+  field: string;
+  value: string;
+  explanation: string;
+  confidence: "LOW" | "MEDIUM" | "HIGH";
+};
+
 type Relation = {
   type: "same_partner" | "same_address" | "same_root" | "same_phone" | "same_email";
   score: number;
   reason: string;
   company: Empresa;
+  evidence: RelationEvidence;
 };
 
 type FindingType =
@@ -168,6 +179,11 @@ export async function buildInvestigationReport(cnpjBasico: string) {
   };
 }
 
+export async function buildInvestigationDossierHtml(cnpjBasico: string): Promise<string> {
+  const report = await buildInvestigationReport(cnpjBasico);
+  return renderDossierHtml(report);
+}
+
 async function findEmpresa(cnpjBasico: string): Promise<Empresa> {
   const { rows } = await receitaPool.query(
     `
@@ -256,6 +272,11 @@ function buildBranchRelations(target: Empresa, estabelecimentos: Estabelecimento
       score: 20,
       reason: `${estabelecimentos.length} estabelecimentos compartilham o mesmo CNPJ básico.`,
       company: target,
+      evidence: buildRelationEvidence(
+        "same_root",
+        target.cnpjBasico,
+        "Empresas pertencem à mesma raiz de CNPJ.",
+      ),
     },
   ];
 }
@@ -289,6 +310,11 @@ async function findSamePartnerRelations(cnpjBasico: string, socios: Socio[]): Pr
     score: 50,
     reason: `Sócio em comum: ${row.nome_socio || "não identificado"}.`,
     company: mapEmpresaRow(row),
+    evidence: buildRelationEvidence(
+      "same_partner",
+      String(row.nome_socio || "não identificado"),
+      "Empresas compartilham o mesmo sócio/administrador na base local.",
+    ),
   }));
 }
 
@@ -314,6 +340,11 @@ async function findSameAddressRelations(cnpjBasico: string, estabelecimentos: Es
     score: 25,
     reason: "Empresa encontrada no mesmo endereço normalizado.",
     company: mapEmpresaRow(row),
+    evidence: buildRelationEvidence(
+      "same_address",
+      String(row.endereco_normalizado || "endereço não identificado"),
+      "Empresas compartilham endereço cadastral.",
+    ),
   }));
 }
 
@@ -350,6 +381,7 @@ async function findSameContactRelations(
     score,
     reason: `Mesmo ${label}: ${row.evidence}.`,
     company: mapEmpresaRow(row),
+    evidence: buildRelationEvidence(type, String(row.evidence || ""), `Empresas compartilham ${label} cadastral.`),
   }));
 }
 
@@ -364,6 +396,26 @@ function limitRelations(relations: Relation[]): Relation[] {
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, 50);
+}
+
+function buildRelationEvidence(type: Relation["type"], value: string, explanation: string): RelationEvidence {
+  const config: Record<Relation["type"], Pick<RelationEvidence, "field" | "confidence">> = {
+    same_partner: { field: "socio", confidence: "HIGH" },
+    same_phone: { field: "telefone", confidence: "MEDIUM" },
+    same_email: { field: "email", confidence: "MEDIUM" },
+    same_address: { field: "endereco", confidence: "MEDIUM" },
+    same_root: { field: "cnpj_basico", confidence: "HIGH" },
+  };
+
+  return {
+    source: "Receita Federal - Base Pública CNPJ",
+    sourceType: "receita_local",
+    collectedAt: null,
+    field: config[type].field,
+    value,
+    explanation,
+    confidence: config[type].confidence,
+  };
 }
 
 function buildKeyFindings(
@@ -449,6 +501,7 @@ function buildFindings(
       evidence: [
         `${partnerRelations.length} empresa(s) relacionada(s) por sócio.`,
         ...uniqueEvidence(partnerRelations.map((relation) => relation.reason)),
+        ...relationEvidenceLines(partnerRelations),
         ...socios.slice(0, 3).map((socio) => `Sócio da investigada: ${socio.nome || "não identificado"}`),
       ],
     });
@@ -461,7 +514,11 @@ function buildFindings(
       title: "Telefone compartilhado entre empresas",
       description:
         "O mesmo telefone aparece em outra(s) empresa(s), o que pode indicar operação comum, escritório compartilhado ou vínculo operacional.",
-      evidence: [`${phoneRelations.length} vínculo(s) por telefone.`, ...uniqueEvidence(phoneRelations.map((relation) => relation.reason))],
+      evidence: [
+        `${phoneRelations.length} vínculo(s) por telefone.`,
+        ...uniqueEvidence(phoneRelations.map((relation) => relation.reason)),
+        ...relationEvidenceLines(phoneRelations),
+      ],
     });
   }
 
@@ -472,7 +529,11 @@ function buildFindings(
       title: "E-mail compartilhado entre empresas",
       description:
         "O mesmo e-mail aparece em outra(s) empresa(s), sugerindo canal administrativo ou responsável comum.",
-      evidence: [`${emailRelations.length} vínculo(s) por e-mail.`, ...uniqueEvidence(emailRelations.map((relation) => relation.reason))],
+      evidence: [
+        `${emailRelations.length} vínculo(s) por e-mail.`,
+        ...uniqueEvidence(emailRelations.map((relation) => relation.reason)),
+        ...relationEvidenceLines(emailRelations),
+      ],
     });
   }
 
@@ -486,6 +547,7 @@ function buildFindings(
       evidence: [
         `${addressRelations.length} empresa(s) encontrada(s) no mesmo endereço.`,
         ...uniqueEvidence(addressRelations.map((relation) => relation.company.razaoSocial || relation.company.cnpjBasico)),
+        ...relationEvidenceLines(addressRelations),
       ],
     });
   }
@@ -502,6 +564,7 @@ function buildFindings(
         ...estabelecimentos
           .slice(0, 5)
           .map((item) => `${item.cnpjCompleto} - ${[item.municipioNome || item.municipio, item.uf].filter(Boolean).join("/") || "local não informado"}`),
+        ...relationEvidenceLines(relations.filter((relation) => relation.type === "same_root")),
       ],
     });
   }
@@ -585,6 +648,13 @@ function uniqueEvidence(items: Array<string | null | undefined>, limit = 5): str
   return [...new Set(items.filter((item): item is string => Boolean(item)))].slice(0, limit);
 }
 
+function relationEvidenceLines(relations: Relation[], limit = 3): string[] {
+  return relations.slice(0, limit).map((relation) => {
+    const evidence = relation.evidence;
+    return `Evidência (${evidence.field}): ${evidence.value} | Fonte: ${evidence.source} | Confiança: ${evidence.confidence}.`;
+  });
+}
+
 function parseCapitalSocial(value: string | null): number | null {
   if (!value) return null;
   const normalized = value.includes(",") ? value.replace(/\./g, "").replace(",", ".") : value;
@@ -642,4 +712,155 @@ function mapEmpresaRow(row: Record<string, unknown>): Empresa {
 
 function stripInternalEstablishment(estabelecimento: Estabelecimento): Estabelecimento {
   return estabelecimento;
+}
+
+type InvestigationReportData = Awaited<ReturnType<typeof buildInvestigationReport>>;
+
+function renderDossierHtml(report: InvestigationReportData): string {
+  const generatedAt = new Date().toISOString();
+  const { target, summary, investigationScore, findings, relations } = report;
+  const companyName = target.company.razaoSocial || target.company.cnpjBasico;
+
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Dossiê de Investigação - ${escapeHtml(companyName)}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; color: #172033; line-height: 1.5; }
+    h1, h2, h3 { color: #0f172a; }
+    .muted { color: #64748b; }
+    .card { border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin: 16px 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .metric { background: #f8fafc; border-radius: 10px; padding: 12px; }
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #e2e8f0; }
+    .high { background: #fee2e2; color: #991b1b; }
+    .medium { background: #fef3c7; color: #92400e; }
+    .low { background: #e0f2fe; color: #075985; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f1f5f9; }
+    code { background: #f1f5f9; padding: 2px 4px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Dossiê de Investigação Empresarial</h1>
+  <p class="muted">Gerado em ${escapeHtml(generatedAt)}</p>
+
+  <section class="card">
+    <h2>Empresa alvo</h2>
+    <p><strong>${escapeHtml(companyName)}</strong></p>
+    <p>CNPJ básico: <code>${escapeHtml(target.company.cnpjBasico)}</code></p>
+    <p>Capital social: ${escapeHtml(target.company.capitalSocial || "Não informado")}</p>
+    <p>Situação cadastral: ${escapeHtml(target.company.situacaoCadastral || "Não informada")}</p>
+  </section>
+
+  <section class="card">
+    <h2>Resumo executivo</h2>
+    <div class="grid">
+      ${metric("Nível", summary.investigationLevel)}
+      ${metric("Empresas vinculadas", String(summary.totalRelatedCompanies))}
+      ${metric("Por sócio", String(summary.totalRelatedByPartner))}
+      ${metric("Por telefone", String(summary.totalPhoneLinks))}
+      ${metric("Por e-mail", String(summary.totalEmailLinks))}
+      ${metric("Por endereço", String(summary.totalRelatedByAddress))}
+    </div>
+    ${list(summary.keyFindings)}
+  </section>
+
+  <section class="card">
+    <h2>Score</h2>
+    <p><span class="badge ${severityClass(investigationScore.level)}">${escapeHtml(investigationScore.level)}</span> ${investigationScore.points} pontos</p>
+    ${list(investigationScore.reasons)}
+  </section>
+
+  <section class="card">
+    <h2>Achados de investigação</h2>
+    ${findings.length > 0 ? findings.map(renderFinding).join("") : "<p>Nenhum achado gerado.</p>"}
+  </section>
+
+  <section class="card">
+    <h2>Relações e evidências</h2>
+    ${relations.length > 0 ? renderRelationsTable(relations) : "<p>Nenhuma relação detectada.</p>"}
+  </section>
+
+  <section class="card">
+    <h2>Fonte dos dados</h2>
+    <p>As relações deste dossiê usam dados locais importados da <strong>Receita Federal - Base Pública CNPJ</strong>, salvo indicação expressa em contrário.</p>
+  </section>
+
+  <section class="card">
+    <h2>Aviso de limitações</h2>
+    ${list([
+      "A base local é parcial e pode não conter todos os estabelecimentos, sócios ou contatos disponíveis nacionalmente.",
+      "CPF/CNPJ de sócios pode estar mascarado na fonte pública.",
+      "Relações indicam evidências cadastrais compartilhadas; não provam, isoladamente, grupo econômico ou irregularidade.",
+      "Este relatório não substitui análise jurídica/compliance humana.",
+    ])}
+  </section>
+</body>
+</html>`;
+}
+
+function metric(label: string, value: string): string {
+  return `<div class="metric"><strong>${escapeHtml(value)}</strong><br><span class="muted">${escapeHtml(label)}</span></div>`;
+}
+
+function list(items: string[]): string {
+  if (items.length === 0) return "";
+  return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function renderFinding(finding: Finding): string {
+  return `<div class="card">
+    <h3>${escapeHtml(finding.title)} <span class="badge ${severityClass(finding.severity)}">${escapeHtml(finding.severity)}</span></h3>
+    <p>${escapeHtml(finding.description)}</p>
+    <h4>Evidências</h4>
+    ${list(finding.evidence)}
+  </div>`;
+}
+
+function renderRelationsTable(relations: Relation[]): string {
+  return `<table>
+    <thead>
+      <tr>
+        <th>Tipo</th>
+        <th>Empresa relacionada</th>
+        <th>Motivo</th>
+        <th>Evidência</th>
+        <th>Fonte</th>
+        <th>Confiança</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${relations.map(renderRelationRow).join("")}
+    </tbody>
+  </table>`;
+}
+
+function renderRelationRow(relation: Relation): string {
+  const evidence = relation.evidence;
+  return `<tr>
+    <td>${escapeHtml(relation.type)}</td>
+    <td>${escapeHtml(relation.company.razaoSocial || relation.company.cnpjBasico)}</td>
+    <td>${escapeHtml(relation.reason)}</td>
+    <td><strong>${escapeHtml(evidence.field)}:</strong> ${escapeHtml(evidence.value)}<br>${escapeHtml(evidence.explanation)}</td>
+    <td>${escapeHtml(evidence.source)}<br><span class="muted">${escapeHtml(evidence.sourceType)}${evidence.collectedAt ? ` - ${escapeHtml(evidence.collectedAt)}` : ""}</span></td>
+    <td>${escapeHtml(evidence.confidence)}</td>
+  </tr>`;
+}
+
+function severityClass(severity: FindingSeverity): string {
+  if (severity === "HIGH") return "high";
+  if (severity === "MEDIUM") return "medium";
+  return "low";
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
