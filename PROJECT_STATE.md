@@ -1,108 +1,161 @@
-# Estado atual do projeto CNPJ — 2026-05-18
+# Estado Atual do Projeto CNPJ — 2026-05-22
 
-## Arquitetura
+## Visão do Produto
 
-Frontend: React + TypeScript + Vite + Tailwind
-Backend: Node + TypeScript + Fastify
-Banco 1: Supabase (cache de consultas CNPJ)
-Banco 2: PostgreSQL local Docker (base Receita Federal)
+Este projeto não é um buscador de CNPJ.
 
-```
-src/
-├── App.tsx                        (~1.500 linhas)
-├── services/
-│   ├── api.ts                     cliente HTTP base
-│   ├── providers.ts               consulta CNPJ multi-provider
-│   ├── normalizer.ts              normalização de dados
-│   ├── receita.ts                 tipos + funções Receita
-│   ├── investigation.ts           tipos + função de relatório
-│   ├── search.ts                  busca local
-│   └── compare.ts                 comparação de empresas
+O objetivo oficial é construir um **Motor de Investigação Empresarial explicável, auditável e orientado a decisão**.
 
-backend/src/
-├── server.ts
-├── routes/
-│   ├── companies.routes.ts
-│   ├── receita.routes.ts
-│   └── investigation.routes.ts
-├── services/
-│   ├── cnpjLookup.service.ts
-│   ├── investigation.service.ts
-│   └── ...
-└── repositories/
-    ├── company.repository.ts
-    └── receita.repository.ts
-```
+O sistema deve receber identificadores empresariais, resolver entidades relacionadas, explicar vínculos, gerar achados com evidências e produzir dossiês que ajudem o usuário a decidir o próximo passo de uma investigação.
 
-## Implementado ✅
+Entradas do produto final:
 
-Consulta CNPJ:
-- Consulta por CNPJ com fallback (CNPJ.ws → CNPJá → BrasilAPI)
-- Timeout com AbortController
-- Histórico persistente (localStorage)
-- Favoritos persistentes (localStorage)
-- Copiar: CNPJ, razão social, endereço, e-mail
-- Exportar TXT
-- Google Maps, Google, Receita Federal
-- JSON bruto + árvore dinâmica JSON
-- Expandir/recolher
-- Inscrições estaduais
-- Dados adicionais (MEI, Simples Nacional, sócios, telefones, e-mails)
+- CNPJ
+- razão social
+- sócio
+- endereço
+- telefone
+- e-mail
 
-Comparação:
-- Comparação empresa x empresa
-- Exportação CSV e PDF da comparação
-- Score local entre empresas
+Saídas do produto final:
 
-Motor de Investigação:
-- Busca Receita Federal por razão social (27.6M empresas)
-- Classificação STRONG / PARTIAL / CADASTRAL com badges visuais
-- Endpoint `/api/receita/investigaveis` — apenas CNPJs com dados completos
-- Botão "Investigar vínculos" condicional por status
-- Relatório executivo: nível LOW/MEDIUM/HIGH, achados automáticos, totais por tipo
-- Vínculos: mesmo sócio, mesmo endereço, mesmo telefone, mesmo e-mail
-- Grafo de relações (SVG estático)
-- Município legível via `receita_municipios` (5.572 municípios)
+- empresas relacionadas
+- grupos empresariais
+- vínculos diretos e indiretos
+- grafo navegável
+- achados de investigação
+- score explicável
+- dossiê auditável
+- evidências por vínculo
+- monitoramento futuro
 
-## Dados Locais (PostgreSQL Docker porta 5433)
+## Arquitetura Atual
+
+Frontend:
+
+- React + TypeScript + Vite + Tailwind.
+- `src/App.tsx` concentra o MVP visual.
+- `src/services/api.ts` centraliza HTTP.
+- `src/services/receita.ts` acessa busca Receita, investigáveis e estabelecimentos.
+- `src/services/investigation.ts` acessa relatório, disponibilidade, achados e score.
+
+Backend:
+
+- Fastify + TypeScript.
+- `backend/src/server.ts` inicializa API.
+- `backend/src/routes/companies.routes.ts` preserva consulta CNPJ e relações antigas.
+- `backend/src/routes/receita.routes.ts` expõe Receita local.
+- `backend/src/routes/investigation.routes.ts` expõe relatório de investigação.
+- `backend/src/services/investigation.service.ts` concentra motor inicial de vínculos, achados, score e grafo.
+- `backend/src/repositories/receita.repository.ts` consulta PostgreSQL local.
+
+Dados:
+
+- Supabase: cache normalizado de consultas CNPJ externas.
+- PostgreSQL local Docker: base pública Receita importada parcialmente.
+- Importadores Receita: ZIP streaming, CSV `;`, encoding `latin1`, batch insert.
+
+## Arquitetura-Alvo
+
+Módulos obrigatórios:
+
+- Núcleo de dados: fontes, importação, cache, normalização, proveniência e qualidade.
+- Resolução de entidades: deduplicar e consolidar empresas, sócios, endereços, telefones e e-mails.
+- Motor de vínculos: detectar relações diretas e indiretas, sempre com motivo e fonte.
+- Motor de achados: converter vínculos em conclusões operacionais explicáveis.
+- Score explicável: pontuação com nível, pontos e razões auditáveis.
+- Dossiê probatório: HTML/PDF com evidências, trilha de origem e resumo decisório.
+- Monitoramento: acompanhar mudanças em empresas, sócios, contatos e novos vínculos.
+- Workspace de casos: organizar investigações, favoritos, notas, status e histórico.
+
+## Estado Atual Implementado
+
+Produto/MVP:
+
+- Consulta CNPJ multi-provider via backend.
+- Busca Receita por razão social.
+- Lista de empresas investigáveis.
+- Seleção de empresa e estabelecimentos.
+- Botão `Investigar vínculos` quando há dado investigável.
+- Relatório de investigação.
+- Resumo Executivo.
+- Grafo visual funcional.
+- Explorar relações por sócio, telefone, e-mail e endereço.
+- Motor de Achados inicial.
+- `investigationScore` explicável.
+- Cards de achados por severidade.
+- Evidências iniciais por achado.
+
+Backend:
+
+- Fastify/TypeScript.
+- Supabase como cache.
+- PostgreSQL local Receita.
+- Importadores Receita.
+- Endpoint `GET /api/receita/search`.
+- Endpoint `GET /api/receita/investigaveis`.
+- Endpoint `GET /api/receita/companies/:cnpjBasico/establishments`.
+- Endpoint `GET /api/investigation/company/:cnpjBasico`.
+- Endpoint `GET /api/investigation/company/:cnpjBasico/availability`.
+
+Dados locais conhecidos:
 
 | Tabela | Registros |
-|---|---|
+|---|---:|
 | `receita_empresas` | 27.628.041 |
 | `receita_estabelecimentos` | 100.000 |
 | `receita_socios` | 1.187.000 |
 | `receita_municipios` | 5.572 |
 
-Cobertura STRONG (empresa + estabelecimento + sócio): **7 CNPJs**
-Cobertura PARTIAL (empresa + estabelecimento): ~26.255 CNPJs
-Motivo: partições `*0.zip` de cada arquivo têm sobreposição mínima.
+CNPJs fortes para demo:
 
-CNPJs STRONG disponíveis para demo:
-- `62909728` — GREAT WALL MOTOR BRASIL COMERCIO LTDA (22 vínculos, nível HIGH)
-- `97543890` — TOLEDO PAULINO SERVICOS EM INFORMATICA LTDA (7 vínculos)
-- `59698351` — M.S CASA DE CARNES LTDA
-- `58638478` — IMPORLED VARIEDADE EM IMPORTADOS LTDA
+- `62909728` — GREAT WALL MOTOR BRASIL COMERCIO LTDA.
+- `97543890` — TOLEDO PAULINO SERVICOS EM INFORMATICA LTDA.
+- `59698351` — M.S CASA DE CARNES LTDA.
+- `58638478` — IMPORLED VARIEDADE EM IMPORTADOS LTDA.
 
-## Pendente / Próximos Passos
+Validação recente:
 
-1. **Importar mais partições** (maior impacto, sem código novo):
-   ```bash
-   cd backend
-   npm run import:estabelecimentos -- /Users/cris/Downloads/2026-05/Estabelecimentos1.zip --limit 500000
-   npm run import:socios -- /Users/cris/Downloads/2026-05/Socios1.zip --limit 200000
-   ```
+- `62909728` retornou `summary`, `relations`, `graph`, `findings` e `investigationScore`.
+- GREAT WALL retornou 22 relações, 2 achados e score MEDIUM/55.
 
-2. **Busca por sócio** — rota `GET /api/receita/search/partner?q=nome`
+## Lacunas Críticas
 
-3. **Grafo interativo** — substituir SVG por `@xyflow/react` ou similar
+- Evidência por vínculo individual com fonte, campo e valor.
+- Dossiê HTML/PDF.
+- Busca por sócio, endereço, telefone e e-mail.
+- Normalização de municípios e endereços.
+- Resolução robusta de entidades.
+- Score de grupo econômico.
+- Monitoramento.
+- Workspace de casos.
 
-4. **Trigram otimizado** — usar `similarity()` do pg_trgm em vez de `LIKE '%termo%'`
+## Prioridade Imediata
 
-5. **Split do App.tsx** — extrair seções em componentes separados
+1. Evidência por vínculo.
+2. Dossiê HTML simples.
+3. Grafo navegável.
+4. Busca unificada por sócio/endereço/telefone/e-mail.
+5. Normalização de municípios/endereço.
 
-## Problemas Pendentes
+## Restrições Atuais
 
-- App.tsx com ~1.500 linhas
-- Busca LIKE lenta em escala — índice trigram existe mas não está sendo aproveitado com `%` inicial
-- Grafo não interativo
-- Sócios têm CPF mascarado (`***558475**`) — limitação da Receita Federal
+- Não voltar a tratar o produto como consulta CNPJ.
+- Não adicionar campos só por adicionar.
+- Não importar mais base sem justificativa de produto.
+- Não fazer inferências sem evidência.
+- Toda relação precisa ter motivo e fonte.
+- Preservar MVP incremental.
+- Não reimplementar funcionalidades existentes.
+- Não alterar contratos sem necessidade.
+- Não expor chaves no frontend.
+
+## Instruções Para Agentes
+
+- Ler `CLAUDE.md`, `PROJECT_HANDOFF.md` e `PROJECT_STATE.md` antes de codar.
+- Não reanalisar arquitetura quando a tarefa for pontual.
+- Economizar contexto.
+- Implementar por etapas pequenas.
+- Rodar `npm run typecheck` e `npm run build` quando houver alteração frontend.
+- Rodar `cd backend && npm run typecheck && npm run build` quando houver alteração backend.
+- Pedir confirmação para ações destrutivas.

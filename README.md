@@ -1,73 +1,132 @@
-# React + TypeScript + Vite
+# Motor de Investigação Empresarial
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Este projeto não é um buscador de CNPJ.
 
-Currently, two official plugins are available:
+É um **Motor de Investigação Empresarial explicável, auditável e orientado a decisão**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+O objetivo é transformar dados cadastrais, dados públicos da Receita Federal e consultas externas em vínculos empresariais, achados interpretáveis, score explicável e dossiês auditáveis.
 
-## React Compiler
+## Entradas
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- CNPJ
+- razão social
+- sócio
+- endereço
+- telefone
+- e-mail
 
-## Expanding the ESLint configuration
+## Saídas
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- empresas relacionadas
+- grupos empresariais
+- vínculos diretos e indiretos
+- grafo navegável
+- achados de investigação
+- score explicável
+- dossiê auditável
+- evidências por vínculo
+- monitoramento futuro
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Arquitetura Atual
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Frontend:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- React
+- TypeScript
+- Vite
+- Tailwind
+
+Backend:
+
+- Fastify
+- TypeScript
+- Supabase como cache operacional
+- PostgreSQL local Docker com base Receita Federal
+
+Principais áreas:
+
+- `src/App.tsx`: MVP visual principal.
+- `src/services/receita.ts`: busca Receita e estabelecimentos.
+- `src/services/investigation.ts`: relatório, achados e score.
+- `backend/src/routes/receita.routes.ts`: rotas da Receita local.
+- `backend/src/routes/investigation.routes.ts`: rotas de investigação.
+- `backend/src/services/investigation.service.ts`: motor inicial de vínculos, achados, score e grafo.
+
+## Estado Atual
+
+Implementado:
+
+- Consulta CNPJ multi-provider via backend.
+- Busca Receita por razão social.
+- Investigação por CNPJ básico.
+- Relações por sócio, telefone, e-mail, endereço e matriz/filiais.
+- Resumo Executivo.
+- Motor de Achados inicial.
+- Score explicável.
+- Cards por severidade.
+- Evidências iniciais por achado.
+- Grafo visual.
+- Explorar relações.
+
+## Arquitetura-Alvo
+
+Módulos obrigatórios:
+
+- Núcleo de dados.
+- Resolução de entidades.
+- Motor de vínculos.
+- Motor de achados.
+- Score explicável.
+- Dossiê probatório.
+- Monitoramento.
+- Workspace de casos.
+
+## Prioridade Imediata
+
+1. Evidência por vínculo.
+2. Dossiê HTML simples.
+3. Grafo navegável.
+4. Busca unificada por sócio/endereço/telefone/e-mail.
+5. Normalização de municípios/endereço.
+
+## Comandos
+
+Frontend:
+
+```bash
+npm run dev
+npm run typecheck
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Backend:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd backend
+npm run dev
+npm run typecheck
+npm run build
 ```
+
+Banco local Receita:
+
+```bash
+cd backend
+npm run db:up
+```
+
+Validação rápida:
+
+```bash
+curl http://localhost:3001/health
+curl "http://localhost:3001/api/investigation/company/62909728"
+```
+
+## Restrições
+
+- Não voltar a tratar o produto como consulta CNPJ.
+- Não adicionar campos só por adicionar.
+- Não importar mais base sem justificativa de produto.
+- Não fazer inferências sem evidência.
+- Toda relação precisa ter motivo e fonte.
+- Preservar MVP incremental.
