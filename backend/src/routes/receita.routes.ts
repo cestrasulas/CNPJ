@@ -139,7 +139,16 @@ function clampLimit(value?: string): number {
   return Math.min(Math.max(Math.trunc(parsed), 1), 50);
 }
 
+function computeStatusInvestigacao(temSocio: boolean | null | undefined, temEstabelecimento: boolean | null | undefined): "STRONG" | "PARTIAL" | "CADASTRAL" | null {
+  if (temSocio == null && temEstabelecimento == null) return null;
+  if (temSocio) return "STRONG";
+  if (temEstabelecimento) return "PARTIAL";
+  return "CADASTRAL";
+}
+
 function mapEmpresa(row: ReceitaEmpresaRow) {
+  const temEstabelecimento = row.tem_estabelecimento ?? null;
+  const temSocio = row.tem_socio ?? null;
   return {
     cnpjBasico: row.cnpj_basico,
     razaoSocial: row.razao_social,
@@ -147,8 +156,9 @@ function mapEmpresa(row: ReceitaEmpresaRow) {
     qualificacaoResponsavel: row.qualificacao_responsavel,
     capitalSocial: row.capital_social,
     porte: row.porte,
-    temEstabelecimento: row.tem_estabelecimento ?? null,
-    temSocio: row.tem_socio ?? null,
+    temEstabelecimento,
+    temSocio,
+    statusInvestigacao: computeStatusInvestigacao(temSocio, temEstabelecimento),
   };
 }
 
@@ -159,9 +169,11 @@ function mapEstabelecimento(row: ReceitaEstabelecimentoRow) {
     situacaoCadastral: row.situacao_cadastral,
     cnaePrincipal: row.cnae_fiscal_principal,
     municipio: row.municipio,
+    municipioNome: row.municipio_nome ?? null,
     uf: row.uf,
     telefone: row.telefone1_normalizado,
     email: row.email,
+    enderecoNormalizado: row.endereco_normalizado,
   };
 }
 
@@ -173,6 +185,7 @@ function mapEstabelecimentoSample(row: ReceitaEstabelecimentoSampleRow) {
     nomeFantasia: row.nome_fantasia,
     cnaePrincipal: row.cnae_fiscal_principal,
     municipio: row.municipio,
+    municipioNome: row.municipio_nome ?? null,
     uf: row.uf,
   };
 }

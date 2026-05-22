@@ -9,16 +9,22 @@ import {
   gerarHtmlComparacao,
   valorComparacao,
 } from "./services/compare";
-import { obterRelatorioInvestigacao, type InvestigationReport } from "./services/investigation";
+import {
+  obterDisponibilidadeInvestigacao,
+  obterRelatorioInvestigacao,
+  type InvestigationAvailability,
+  type InvestigationRelation,
+  type InvestigationReport,
+} from "./services/investigation";
 import { normalizarEmpresa } from "./services/normalizer";
 import { consultarProvider } from "./services/providers";
 import {
   buscarReceitaFederal,
-  listarAmostraEstabelecimentosReceita,
   listarEstabelecimentosReceita,
+  listarInvestigaveis,
+  resolveStatusInvestigacao,
   type ReceitaEmpresa,
   type ReceitaEstabelecimento,
-  type ReceitaEstabelecimentoSample,
 } from "./services/receita";
 import {
   buscarLocal,
@@ -67,10 +73,12 @@ export default function App() {
   const [estabelecimentosReceita, setEstabelecimentosReceita] = useState<ReceitaEstabelecimento[]>([]);
   const [loadingEstabelecimentos, setLoadingEstabelecimentos] = useState(false);
   const [erroEstabelecimentos, setErroEstabelecimentos] = useState("");
-  const [amostrasReceita, setAmostrasReceita] = useState<ReceitaEstabelecimentoSample[]>([]);
+  const [amostrasReceita, setAmostrasReceita] = useState<ReceitaEmpresa[]>([]);
   const [loadingAmostrasReceita, setLoadingAmostrasReceita] = useState(false);
   const [erroAmostrasReceita, setErroAmostrasReceita] = useState("");
   const [relatorioInvestigacao, setRelatorioInvestigacao] = useState<InvestigationReport | null>(null);
+  const [disponibilidadeInvestigacao, setDisponibilidadeInvestigacao] =
+    useState<InvestigationAvailability | null>(null);
   const [loadingInvestigacao, setLoadingInvestigacao] = useState(false);
   const [erroInvestigacao, setErroInvestigacao] = useState("");
   const [historico, setHistorico] = useState<HistoricoItem[]>(() => {
@@ -120,6 +128,14 @@ export default function App() {
     });
     return calcularRelacionamentosLocais(company, unicas);
   }, [company, historico, favoritos]);
+
+  const podeInvestigarEmpresaSelecionada = useMemo(() => {
+    if (!empresaReceitaSelecionada) return false;
+    if (disponibilidadeInvestigacao?.cnpjBasico === empresaReceitaSelecionada.cnpjBasico) {
+      return disponibilidadeInvestigacao.canInvestigate;
+    }
+    return possuiDadoInvestigavel(estabelecimentosReceita);
+  }, [disponibilidadeInvestigacao, empresaReceitaSelecionada, estabelecimentosReceita]);
 
   async function consultar() {
     await consultarCnpj(cnpj);
@@ -195,6 +211,7 @@ export default function App() {
       setEstabelecimentosReceita([]);
       setErroEstabelecimentos("");
       setRelatorioInvestigacao(null);
+      setDisponibilidadeInvestigacao(null);
       setErroInvestigacao("");
       const resultados = await buscarReceitaFederal(termo);
       setResultadosReceita(resultados);
@@ -214,38 +231,30 @@ export default function App() {
     try {
       setErroAmostrasReceita("");
       setLoadingAmostrasReceita(true);
-      const amostras = await listarAmostraEstabelecimentosReceita();
+      const amostras = await listarInvestigaveis(20);
       setAmostrasReceita(amostras);
     } catch (error) {
-      setErroAmostrasReceita(error instanceof Error ? error.message : "Erro ao carregar amostras.");
+      setErroAmostrasReceita(error instanceof Error ? error.message : "Erro ao carregar investigáveis.");
     } finally {
       setLoadingAmostrasReceita(false);
     }
   }
 
-  async function usarAmostraReceita(amostra: ReceitaEstabelecimentoSample) {
-    const empresa: ReceitaEmpresa = {
-      cnpjBasico: amostra.cnpjBasico,
-      razaoSocial: amostra.razaoSocial || amostra.nomeFantasia || `CNPJ básico ${amostra.cnpjBasico}`,
-      naturezaJuridica: null,
-      qualificacaoResponsavel: null,
-      capitalSocial: null,
-      porte: null,
-    };
-
-    setEmpresaReceitaSelecionada(empresa);
+  async function usarAmostraReceita(empresa: ReceitaEmpresa) {
     setResultadosReceita([]);
     setReceitaPesquisada(false);
-    setRelatorioInvestigacao(null);
-    setErroInvestigacao("");
-    await carregarEstabelecimentosReceita(empresa.cnpjBasico);
+    await selecionarEmpresaReceita(empresa);
   }
 
   async function selecionarEmpresaReceita(empresa: ReceitaEmpresa) {
     setEmpresaReceitaSelecionada(empresa);
     setRelatorioInvestigacao(null);
+    setDisponibilidadeInvestigacao(null);
     setErroInvestigacao("");
-    await carregarEstabelecimentosReceita(empresa.cnpjBasico);
+    await Promise.all([
+      carregarEstabelecimentosReceita(empresa.cnpjBasico),
+      carregarDisponibilidadeInvestigacao(empresa.cnpjBasico),
+    ]);
   }
 
   async function carregarEstabelecimentosReceita(cnpjBasico: string) {
@@ -259,6 +268,15 @@ export default function App() {
       setErroEstabelecimentos(error instanceof Error ? error.message : "Erro ao buscar estabelecimentos.");
     } finally {
       setLoadingEstabelecimentos(false);
+    }
+  }
+
+  async function carregarDisponibilidadeInvestigacao(cnpjBasico: string) {
+    try {
+      const disponibilidade = await obterDisponibilidadeInvestigacao(cnpjBasico);
+      setDisponibilidadeInvestigacao(disponibilidade);
+    } catch {
+      setDisponibilidadeInvestigacao(null);
     }
   }
 
@@ -459,6 +477,7 @@ export default function App() {
                   setReceitaPesquisada(false);
                   setEmpresaReceitaSelecionada(null);
                   setEstabelecimentosReceita([]);
+                  setDisponibilidadeInvestigacao(null);
                   setErroEstabelecimentos("");
                 }}
                 onKeyDown={onEnterReceita}
@@ -475,9 +494,9 @@ export default function App() {
               <button
                 onClick={carregarAmostrasReceita}
                 disabled={loadingAmostrasReceita}
-                className="rounded-2xl border border-slate-700 px-6 py-3 font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-40"
+                className="rounded-2xl border border-cyan-500/30 bg-cyan-500/5 px-6 py-3 font-bold text-cyan-200 hover:bg-cyan-500/15 disabled:opacity-40"
               >
-                {loadingAmostrasReceita ? "Carregando..." : "Ver amostras úteis"}
+                {loadingAmostrasReceita ? "Carregando..." : "Ver investigáveis"}
               </button>
             </div>
           </div>
@@ -489,16 +508,22 @@ export default function App() {
           )}
 
           {amostrasReceita.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {amostrasReceita.slice(0, 8).map((amostra) => (
-                <button
-                  key={amostra.cnpjCompleto}
-                  onClick={() => usarAmostraReceita(amostra)}
-                  className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-left text-xs font-bold text-cyan-200 hover:bg-cyan-500/20"
-                >
-                  {amostra.razaoSocial || amostra.nomeFantasia || formatarCnpj(amostra.cnpjCompleto)}
-                </button>
-              ))}
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-400">
+                Empresas investigáveis — dados completos disponíveis
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {amostrasReceita.slice(0, 20).map((empresa) => (
+                  <button
+                    key={empresa.cnpjBasico}
+                    onClick={() => usarAmostraReceita(empresa)}
+                    className="flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-left text-xs font-bold text-cyan-200 hover:bg-cyan-500/20"
+                  >
+                    <span className="inline-block h-2 w-2 rounded-full bg-cyan-400" />
+                    {empresa.razaoSocial || `CNPJ ${empresa.cnpjBasico}`}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -520,9 +545,12 @@ export default function App() {
                       : "border-slate-800 bg-slate-950 hover:border-cyan-500"
                   }`}
                 >
-                  <p className="text-xs font-bold uppercase tracking-widest text-cyan-300">
-                    CNPJ básico {empresa.cnpjBasico}
-                  </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs font-bold uppercase tracking-widest text-cyan-300">
+                      CNPJ básico {empresa.cnpjBasico}
+                    </p>
+                    <BadgeInvestigacao empresa={empresa} />
+                  </div>
                   <h3 className="mt-2 break-words text-sm font-black leading-6 text-white">
                     {empresa.razaoSocial || "Razão social não informada"}
                   </h3>
@@ -548,13 +576,15 @@ export default function App() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {loadingEstabelecimentos && <p className="text-sm font-bold text-cyan-300">Carregando...</p>}
-                  <button
-                    onClick={investigarEmpresaReceita}
-                    disabled={loadingInvestigacao}
-                    className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-40"
-                  >
-                    {loadingInvestigacao ? "Investigando..." : "Investigar vínculos"}
-                  </button>
+                  {empresaReceitaSelecionada && podeInvestigarEmpresaSelecionada && (
+                    <button
+                      onClick={investigarEmpresaReceita}
+                      disabled={loadingInvestigacao}
+                      className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-40"
+                    >
+                      {loadingInvestigacao ? "Investigando..." : "Investigar vínculos"}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -587,7 +617,7 @@ export default function App() {
                         CNAE: {estabelecimento.cnaePrincipal || "Não informado"}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
-                        Local: {[estabelecimento.municipio, estabelecimento.uf].filter(Boolean).join(" / ") || "Não informado"}
+                        Local: {[estabelecimento.municipioNome || estabelecimento.municipio, estabelecimento.uf].filter(Boolean).join(" / ") || "Não informado"}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
                         Telefone: {estabelecimento.telefone || "Não informado"}
@@ -614,7 +644,13 @@ export default function App() {
                 </div>
               )}
 
-              {relatorioInvestigacao && <RelatorioInvestigacao relatorio={relatorioInvestigacao} />}
+              {relatorioInvestigacao && (
+                <RelatorioInvestigacao
+                  relatorio={relatorioInvestigacao}
+                  statusInvestigacao={resolveStatusInvestigacao(empresaReceitaSelecionada)}
+                  onAbrirEmpresaReceita={selecionarEmpresaReceita}
+                />
+              )}
             </div>
           )}
 
@@ -995,10 +1031,99 @@ export default function App() {
   );
 }
 
+type ExplorationRelationType = Extract<InvestigationRelation["type"], "same_partner" | "same_phone" | "same_email" | "same_address">;
+
+function possuiDadoInvestigavel(estabelecimentos: ReceitaEstabelecimento[]): boolean {
+  return estabelecimentos.some((estabelecimento) => {
+    return Boolean(estabelecimento.telefone || estabelecimento.email || estabelecimento.enderecoNormalizado);
+  });
+}
+
+function montarGruposExploracao(
+  estabelecimentos: ReceitaEstabelecimento[],
+  partners: InvestigationReport["target"]["partners"],
+  relations: InvestigationRelation[],
+) {
+  const totalPorTipo = (tipo: ExplorationRelationType) => relations.filter((relation) => relation.type === tipo).length;
+
+  return [
+    {
+      key: "same_partner" as const,
+      titulo: "Sócios",
+      descricao: "Outras empresas do sócio",
+      total: totalPorTipo("same_partner"),
+      disponivel: partners.length > 0 || totalPorTipo("same_partner") > 0,
+      emptyMessage: "Nenhuma outra empresa do sócio foi encontrada na base local.",
+    },
+    {
+      key: "same_phone" as const,
+      titulo: "Telefone",
+      descricao: "Empresas com mesmo telefone",
+      total: totalPorTipo("same_phone"),
+      disponivel: estabelecimentos.some((item) => Boolean(item.telefone)) || totalPorTipo("same_phone") > 0,
+      emptyMessage: "Nenhuma empresa com o mesmo telefone foi encontrada na base local.",
+    },
+    {
+      key: "same_email" as const,
+      titulo: "Email",
+      descricao: "Empresas com mesmo email",
+      total: totalPorTipo("same_email"),
+      disponivel: estabelecimentos.some((item) => Boolean(item.email)) || totalPorTipo("same_email") > 0,
+      emptyMessage: "Nenhuma empresa com o mesmo email foi encontrada na base local.",
+    },
+    {
+      key: "same_address" as const,
+      titulo: "Endereço",
+      descricao: "Empresas no mesmo endereço",
+      total: totalPorTipo("same_address"),
+      disponivel: estabelecimentos.some((item) => Boolean(item.enderecoNormalizado)) || totalPorTipo("same_address") > 0,
+      emptyMessage: "Nenhuma empresa no mesmo endereço foi encontrada na base local.",
+    },
+  ];
+}
+
 // ——— Componentes ———
 
-function RelatorioInvestigacao({ relatorio }: { relatorio: InvestigationReport }) {
-  const { summary, target, relations, graph } = relatorio;
+function BadgeInvestigacao({ empresa }: { empresa: ReceitaEmpresa }) {
+  const status = resolveStatusInvestigacao(empresa);
+  if (!status) return null;
+  if (status === "STRONG") {
+    return (
+      <span className="shrink-0 rounded-lg bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+        Investigável forte
+      </span>
+    );
+  }
+  if (status === "PARTIAL") {
+    return (
+      <span className="shrink-0 rounded-lg bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+        Investigável parcial
+      </span>
+    );
+  }
+  return (
+    <span className="shrink-0 rounded-lg bg-slate-700/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      Somente cadastral
+    </span>
+  );
+}
+
+function RelatorioInvestigacao({
+  relatorio,
+  statusInvestigacao,
+  onAbrirEmpresaReceita,
+}: {
+  relatorio: InvestigationReport;
+  statusInvestigacao: import("./services/receita").StatusInvestigacao | null | undefined;
+  onAbrirEmpresaReceita: (empresa: ReceitaEmpresa) => void;
+}) {
+  const { summary, target, findings, investigationScore, relations, graph } = relatorio;
+  const [tipoExplorado, setTipoExplorado] = useState<ExplorationRelationType>("same_partner");
+  const gruposExploracao = montarGruposExploracao(target.establishments, target.partners, relations);
+  const grupoAtivo = gruposExploracao.find((grupo) => grupo.key === tipoExplorado && grupo.disponivel)
+    ?? gruposExploracao.find((grupo) => grupo.disponivel)
+    ?? gruposExploracao[0];
+  const relacoesExploradas = relations.filter((relation) => relation.type === grupoAtivo.key);
 
   return (
     <div className="mt-5 rounded-2xl border border-cyan-500/20 bg-slate-900 p-4">
@@ -1007,6 +1132,70 @@ function RelatorioInvestigacao({ relatorio }: { relatorio: InvestigationReport }
         <h3 className="mt-1 text-xl font-black text-white">
           {target.company.razaoSocial || target.company.cnpjBasico}
         </h3>
+      </div>
+
+      {/* Resumo Executivo */}
+      <div className="mt-4 rounded-xl border border-slate-700/60 bg-slate-800/40 p-4">
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Resumo Executivo</p>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <span className={`rounded-lg px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+            summary.investigationLevel === "HIGH"
+              ? "bg-red-500/20 text-red-300"
+              : summary.investigationLevel === "MEDIUM"
+              ? "bg-amber-500/20 text-amber-300"
+              : "bg-slate-700/60 text-slate-400"
+          }`}>
+            Nível {summary.investigationLevel === "HIGH" ? "Alto" : summary.investigationLevel === "MEDIUM" ? "Médio" : "Baixo"}
+          </span>
+          {statusInvestigacao && (
+            <span className={`rounded-lg px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+              statusInvestigacao === "STRONG"
+                ? "bg-cyan-500/20 text-cyan-300"
+                : statusInvestigacao === "PARTIAL"
+                ? "bg-amber-500/20 text-amber-300"
+                : "bg-slate-700/60 text-slate-400"
+            }`}>
+              {statusInvestigacao === "STRONG" ? "Investigável forte" : statusInvestigacao === "PARTIAL" ? "Investigável parcial" : "Somente cadastral"}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {[
+            { label: "Empresas vinculadas", val: summary.totalRelatedCompanies },
+            { label: "Por sócio", val: summary.totalRelatedByPartner },
+            { label: "Por endereço", val: summary.totalRelatedByAddress },
+            { label: "Por telefone", val: summary.totalPhoneLinks },
+            { label: "Por e-mail", val: summary.totalEmailLinks },
+            { label: "Sócios", val: summary.totalPartners },
+          ].map(({ label, val }) => (
+            <div key={label} className="rounded-lg bg-slate-900/60 p-2 text-center">
+              <p className="text-lg font-black text-white">{val}</p>
+              <p className="mt-0.5 text-[10px] text-slate-400">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {summary.keyFindings.length > 0 && (
+          <ul className="mt-3 space-y-1">
+            {summary.keyFindings.map((f) => (
+              <li key={f} className="flex items-start gap-2 text-xs text-slate-300">
+                <span className="mt-0.5 shrink-0 text-cyan-400">▸</span>
+                {f}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {statusInvestigacao === "PARTIAL" && (
+          <p className="mt-3 text-xs text-amber-300/80">
+            Alguns vínculos podem não aparecer porque sócios não estão disponíveis nesta amostra.
+          </p>
+        )}
+        {statusInvestigacao === "CADASTRAL" && (
+          <p className="mt-3 text-xs text-slate-500">Somente dados cadastrais disponíveis.</p>
+        )}
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-4">
@@ -1025,6 +1214,59 @@ function RelatorioInvestigacao({ relatorio }: { relatorio: InvestigationReport }
           ))}
         </div>
       )}
+
+      <ScoreInvestigacao score={investigationScore} />
+
+      <AchadosInvestigacao findings={findings} />
+
+      <div className="mt-4 rounded-2xl border border-cyan-500/20 bg-slate-950 p-4">
+        <p className="text-xs font-bold uppercase tracking-widest text-cyan-300">Explorar relações</p>
+        <p className="mt-1 text-sm text-slate-400">
+          Navegue por vínculos reais encontrados na base local, sem depender da classificação STRONG/PARTIAL.
+        </p>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {gruposExploracao.map((grupo) => (
+            <button
+              key={grupo.key}
+              onClick={() => setTipoExplorado(grupo.key)}
+              disabled={!grupo.disponivel}
+              className={`rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                grupoAtivo.key === grupo.key
+                  ? "border-cyan-400 bg-cyan-500/10"
+                  : "border-slate-800 bg-slate-900 hover:border-cyan-500/50"
+              }`}
+            >
+              <p className="text-sm font-black text-white">{grupo.titulo}</p>
+              <p className="mt-1 text-xs text-slate-400">{grupo.descricao}</p>
+              <p className="mt-2 text-xs font-bold text-cyan-300">{grupo.total} vínculo(s)</p>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/70 p-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{grupoAtivo.titulo}</p>
+          {relacoesExploradas.length > 0 ? (
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {relacoesExploradas.map((relation, index) => (
+                <button
+                  key={`explorar-${relation.type}-${relation.company.cnpjBasico}-${index}`}
+                  onClick={() => onAbrirEmpresaReceita(relation.company)}
+                  className="rounded-xl border border-slate-800 bg-slate-950 p-3 text-left hover:border-cyan-500/60"
+                >
+                  <p className="text-sm font-bold text-white">
+                    {relation.company.razaoSocial || relation.company.cnpjBasico}
+                  </p>
+                  <p className="mt-1 text-xs text-cyan-300">CNPJ básico {relation.company.cnpjBasico}</p>
+                  <p className="mt-1 text-xs text-slate-400">{relation.reason}</p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-slate-400">{grupoAtivo.emptyMessage}</p>
+          )}
+        </div>
+      </div>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         <ListaAdicional
@@ -1056,6 +1298,91 @@ function RelatorioInvestigacao({ relatorio }: { relatorio: InvestigationReport }
       <GrafoInvestigacao nodes={graph.nodes} edges={graph.edges} />
     </div>
   );
+}
+
+function ScoreInvestigacao({ score }: { score: InvestigationReport["investigationScore"] }) {
+  return (
+    <div className={`mt-4 rounded-2xl border p-4 ${scoreContainerClass(score.level)}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-300">Score de investigação</p>
+          <h4 className="mt-1 text-lg font-black text-white">
+            Atenção {score.level === "HIGH" ? "alta" : score.level === "MEDIUM" ? "média" : "baixa"}
+          </h4>
+        </div>
+        <div className="rounded-xl bg-slate-950/70 px-4 py-3 text-center">
+          <p className="text-2xl font-black text-white">{score.points}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">pontos</p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {score.reasons.map((reason) => (
+          <span key={reason} className="rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs font-semibold text-slate-200">
+            {reason}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AchadosInvestigacao({ findings }: { findings: InvestigationReport["findings"] }) {
+  return (
+    <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950 p-4">
+      <p className="text-xs font-bold uppercase tracking-widest text-cyan-300">Achados de investigação</p>
+      <p className="mt-1 text-sm text-slate-400">
+        Leitura interpretativa dos vínculos encontrados, com severidade e evidências.
+      </p>
+
+      {findings.length > 0 ? (
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          {findings.map((finding) => (
+            <div key={`${finding.type}-${finding.title}`} className={`rounded-2xl border p-4 ${findingCardClass(finding.severity)}`}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <h4 className="font-black text-white">{finding.title}</h4>
+                <span className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${findingBadgeClass(finding.severity)}`}>
+                  {finding.severity}
+                </span>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-slate-300">{finding.description}</p>
+              <div className="mt-3 rounded-xl bg-slate-950/60 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Evidências</p>
+                <ul className="mt-2 space-y-1">
+                  {finding.evidence.map((evidence) => (
+                    <li key={evidence} className="flex items-start gap-2 text-xs leading-5 text-slate-300">
+                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300" />
+                      <span>{evidence}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-slate-400">Nenhum achado gerado com os dados disponíveis.</p>
+      )}
+    </div>
+  );
+}
+
+function scoreContainerClass(level: InvestigationReport["investigationScore"]["level"]): string {
+  if (level === "HIGH") return "border-red-500/30 bg-red-500/10";
+  if (level === "MEDIUM") return "border-amber-500/30 bg-amber-500/10";
+  return "border-cyan-500/20 bg-cyan-500/5";
+}
+
+function findingCardClass(severity: InvestigationReport["findings"][number]["severity"]): string {
+  if (severity === "HIGH") return "border-red-500/30 bg-red-500/10";
+  if (severity === "MEDIUM") return "border-amber-500/30 bg-amber-500/10";
+  return "border-slate-700 bg-slate-900/80";
+}
+
+function findingBadgeClass(severity: InvestigationReport["findings"][number]["severity"]): string {
+  if (severity === "HIGH") return "bg-red-500/20 text-red-200";
+  if (severity === "MEDIUM") return "bg-amber-500/20 text-amber-200";
+  return "bg-cyan-500/10 text-cyan-200";
 }
 
 function GrafoInvestigacao({

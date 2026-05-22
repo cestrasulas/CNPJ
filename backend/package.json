@@ -12,7 +12,8 @@
     "db:migrate:receita": "tsx src/importers/receita/migrate-receita.ts",
     "import:empresas": "tsx src/importers/receita/import-empresas.ts",
     "import:estabelecimentos": "tsx src/importers/receita/import-estabelecimentos.ts",
-    "import:socios": "tsx src/importers/receita/import-socios.ts"
+    "import:socios": "tsx src/importers/receita/import-socios.ts",
+    "import:municipios": "tsx src/importers/receita/import-municipios.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",

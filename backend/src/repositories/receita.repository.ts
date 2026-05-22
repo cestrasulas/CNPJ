@@ -17,9 +17,11 @@ export type ReceitaEstabelecimentoRow = {
   situacao_cadastral: string | null;
   cnae_fiscal_principal: string | null;
   municipio: string | null;
+  municipio_nome: string | null;
   uf: string | null;
   telefone1_normalizado: string | null;
   email: string | null;
+  endereco_normalizado: string | null;
 };
 
 export type ReceitaEstabelecimentoSampleRow = {
@@ -29,6 +31,7 @@ export type ReceitaEstabelecimentoSampleRow = {
   nome_fantasia: string | null;
   cnae_fiscal_principal: string | null;
   municipio: string | null;
+  municipio_nome: string | null;
   uf: string | null;
 };
 
@@ -113,17 +116,20 @@ export async function listReceitaEstabelecimentosByCnpjBasico(
   const { rows } = await receitaPool.query<ReceitaEstabelecimentoRow>(
     `
       select
-        cnpj,
-        nome_fantasia,
-        situacao_cadastral,
-        cnae_fiscal_principal,
-        municipio,
-        uf,
-        telefone1_normalizado,
-        email
-      from receita_estabelecimentos
-      where cnpj_basico = $1
-      order by cnpj_ordem asc
+        e.cnpj,
+        e.nome_fantasia,
+        e.situacao_cadastral,
+        e.cnae_fiscal_principal,
+        e.municipio,
+        m.nome as municipio_nome,
+        e.uf,
+        e.telefone1_normalizado,
+        e.email,
+        e.endereco_normalizado
+      from receita_estabelecimentos e
+      left join receita_municipios m on m.codigo = e.municipio
+      where e.cnpj_basico = $1
+      order by e.cnpj_ordem asc
       limit $2
     `,
     [cnpjBasico, limit],
@@ -142,9 +148,11 @@ export async function sampleReceitaEstabelecimentos(limit: number): Promise<Rece
         e.nome_fantasia,
         e.cnae_fiscal_principal,
         e.municipio,
+        m.nome as municipio_nome,
         e.uf
       from receita_estabelecimentos e
       join receita_empresas emp on emp.cnpj_basico = e.cnpj_basico
+      left join receita_municipios m on m.codigo = e.municipio
       order by
         (exists (select 1 from receita_socios s where s.cnpj_basico = e.cnpj_basico)) desc,
         e.imported_at desc,

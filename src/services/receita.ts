@@ -1,5 +1,7 @@
 import { apiGet } from "./api";
 
+export type StatusInvestigacao = "STRONG" | "PARTIAL" | "CADASTRAL";
+
 export type ReceitaEmpresa = {
   cnpjBasico: string;
   razaoSocial: string | null;
@@ -7,17 +9,18 @@ export type ReceitaEmpresa = {
   qualificacaoResponsavel: string | null;
   capitalSocial: string | null;
   porte: string | null;
+  situacaoCadastral?: string | null;
   temEstabelecimento?: boolean | null;
   temSocio?: boolean | null;
+  statusInvestigacao?: StatusInvestigacao | null;
 };
 
-export type StatusInvestigacao = "investigavel" | "sem_socios" | "sem_estabelecimento" | "limitado";
-
-export function statusInvestigacao(empresa: ReceitaEmpresa): StatusInvestigacao {
-  if (empresa.temEstabelecimento && empresa.temSocio) return "investigavel";
-  if (empresa.temEstabelecimento && !empresa.temSocio) return "sem_socios";
-  if (!empresa.temEstabelecimento && empresa.temSocio) return "sem_estabelecimento";
-  return "limitado";
+export function resolveStatusInvestigacao(empresa: ReceitaEmpresa): StatusInvestigacao | null {
+  if (empresa.statusInvestigacao) return empresa.statusInvestigacao;
+  if (empresa.temEstabelecimento == null && empresa.temSocio == null) return null;
+  if (empresa.temSocio) return "STRONG";
+  if (empresa.temEstabelecimento) return "PARTIAL";
+  return "CADASTRAL";
 }
 
 export type ReceitaEstabelecimento = {
@@ -26,9 +29,11 @@ export type ReceitaEstabelecimento = {
   situacaoCadastral: string | null;
   cnaePrincipal: string | null;
   municipio: string | null;
+  municipioNome?: string | null;
   uf: string | null;
   telefone: string | null;
   email: string | null;
+  enderecoNormalizado?: string | null;
 };
 
 export type ReceitaEstabelecimentoSample = {
@@ -84,6 +89,19 @@ export async function listarAmostraEstabelecimentosReceita(limit = 20): Promise<
   const params = new URLSearchParams({ limit: String(limit) });
   const response = await apiGet<ReceitaEstabelecimentosSampleResponse>(
     `/api/receita/debug/establishments-sample?${params.toString()}`,
+  );
+  return response.data;
+}
+
+type ReceitaInvestigaveisResponse = {
+  data: ReceitaEmpresa[];
+  meta: { limit: number; total: number };
+};
+
+export async function listarInvestigaveis(limit = 20): Promise<ReceitaEmpresa[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const response = await apiGet<ReceitaInvestigaveisResponse>(
+    `/api/receita/investigaveis?${params.toString()}`,
   );
   return response.data;
 }
