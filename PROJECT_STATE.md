@@ -1,5 +1,32 @@
 # Estado Atual do Projeto CNPJ — 2026-05-22
 
+## Modo Autopilot (agentes)
+
+Criado em 2026-05-22:
+
+- `AGENT_AUTOPILOT.md` — loop de trabalho etapa a etapa, permissões operacionais e limites
+- `AGENT_BACKLOG.md` — backlog priorizado com tarefas pequenas, critérios de aceite e validações
+
+Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **ER-003**.
+
+---
+
+## Histórico recente
+
+### 2026-05-22 — Modo autopilot
+
+- Criados `AGENT_AUTOPILOT.md` e `AGENT_BACKLOG.md` (sem alteração de código funcional)
+- Backlog priorizado: entity resolution → dossiê v2 → municípios → busca endereço → grafo depth → PDF → Serpro → CVM → DataJud → workspace → RBAC → monitoramento
+
+### 2026-05-22 — Entity resolution (baseline)
+
+- `entityConfidence` em relações `same_partner` (LOW / MEDIUM / HIGH)
+- Match só por nome → `INFERIDO`; match por documento → `DECLARADO`
+- Linguagem "possível correspondência"; alerta de homônimos na UI (LOW/MEDIUM)
+- Arquivos: `backend/src/services/investigation.service.ts`, `src/services/investigation.ts`, `src/App.tsx`
+
+---
+
 ## Visão do Produto
 
 Este projeto não é um buscador de CNPJ.
@@ -167,17 +194,20 @@ Produto/MVP:
 
 - Consulta CNPJ multi-provider via backend.
 - Busca Receita por razão social.
+- Busca investigativa unificada (`GET /api/search`) por CNPJ, razão social, sócio, endereço, telefone e e-mail.
 - Lista de empresas investigáveis.
 - Seleção de empresa e estabelecimentos.
 - Botão `Investigar vínculos` quando há dado investigável.
 - Relatório de investigação.
 - Resumo Executivo.
-- Grafo visual funcional.
+- Força das evidências (`evidenceStrength`) com classificação DECLARADO / INFERIDO por relação.
+- Resolução de entidades inicial: `entityConfidence` em vínculos por sócio + alerta de homônimos.
+- Grafo visual navegável com painel de evidências.
 - Explorar relações por sócio, telefone, e-mail e endereço.
 - Motor de Achados inicial.
-- `investigationScore` técnico atual, a ser renomeado conceitualmente para "força das evidências".
 - Cards de achados por severidade.
-- Evidências iniciais por achado e vínculo.
+- Evidências por achado e vínculo.
+- Dossiê HTML básico com limitações (evoluir para v2 — DO-001).
 
 Backend:
 
@@ -190,6 +220,8 @@ Backend:
 - Endpoint `GET /api/receita/companies/:cnpjBasico/establishments`.
 - Endpoint `GET /api/investigation/company/:cnpjBasico`.
 - Endpoint `GET /api/investigation/company/:cnpjBasico/availability`.
+- Endpoint `GET /api/investigation/company/:cnpjBasico/dossier.html`.
+- Endpoint `GET /api/search`.
 
 Dados locais conhecidos:
 
@@ -214,16 +246,18 @@ Validação recente:
 
 ## Lacunas Críticas
 
-- Classificação DECLARADO / INFERIDO / VALIDADO / COMPROVADO.
-- Dossiê HTML com seção "Limitações da base".
-- Busca por sócio, endereço, telefone e e-mail.
-- Normalização de municípios e endereços.
-- Resolução robusta de entidades.
-- Força das evidências por grupo econômico candidato.
-- Camada Serpro opcional sob demanda.
-- CVM e DataJud como fontes abertas complementares.
-- Monitoramento.
-- Workspace de casos.
+- Penalizar força global quando há muitos homônimos (ER-003)
+- Dossiê HTML v2 com evidências agrupadas por tipo
+- Normalização de municípios e endereços (busca)
+- Resolução de entidades: nomes ultra-frequentes (ER-005)
+- Grafo: expansão por profundidade
+- Exportação PDF do dossiê
+- Força das evidências por grupo econômico candidato
+- Camada Serpro opcional sob demanda
+- CVM e DataJud como fontes abertas complementares
+- Monitoramento
+- Workspace de casos
+- RBAC
 
 ## Prioridade Imediata
 
@@ -255,7 +289,8 @@ Validação recente:
 
 ## Instruções Para Agentes
 
-- Ler `CLAUDE.md`, `PROJECT_HANDOFF.md` e `PROJECT_STATE.md` antes de codar.
+- Ler `CLAUDE.md`, `PROJECT_HANDOFF.md`, `PROJECT_STATE.md`, `AGENT_AUTOPILOT.md` e `AGENT_BACKLOG.md` antes de codar.
+- Modo autopilot: uma tarefa por vez; marcar backlog e atualizar este arquivo ao concluir.
 - Antes de codar, verificar se a tarefa aumenta explicabilidade, evidência, dossiê, busca ou grafo.
 - Não reanalisar arquitetura quando a tarefa for pontual.
 - Economizar contexto.
