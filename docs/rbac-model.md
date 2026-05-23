@@ -22,9 +22,12 @@
 
 ## MVP local
 
-- `AUTH_DISABLED=true` em dev (sem token)
-- Supabase Auth JWT em produção (RB-002)
+- `AUTH_DISABLED=true` em dev (sem token) — **padrão** no backend
+- Supabase Auth JWT quando `AUTH_DISABLED=false` (RB-002 implementado)
 
-## Decisão pendente
+## RB-002 (implementado)
 
-Confirmar Supabase Auth vs API key interna antes de RB-002.
+- Middleware `requireAuth` em `backend/src/middleware/auth.ts`
+- Rotas `/api/cases/*` protegidas quando auth ativa
+- Header: `Authorization: Bearer <supabase_jwt>`
+- `GET /health` expõe `authDisabled` para diagnóstico

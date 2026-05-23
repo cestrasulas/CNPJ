@@ -25,6 +25,7 @@ await app.register(cors, {
 app.get("/health", async () => ({
   ok: true,
   service: "cnpj-intelligence-backend",
+  authDisabled: env.AUTH_DISABLED,
 }));
 
 await app.register(companiesRoutes);

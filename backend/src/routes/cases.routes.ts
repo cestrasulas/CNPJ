@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { requireAuth } from "../middleware/auth.js";
 import { addCaseEntity, createCase, getCaseById, listCases } from "../services/case.service.js";
 
 const caseStatusSchema = z.enum(["OPEN", "IN_PROGRESS", "CLOSED"]);
@@ -17,6 +18,8 @@ const addEntitySchema = z.object({
 });
 
 export async function casesRoutes(app: FastifyInstance) {
+  app.addHook("onRequest", requireAuth);
+
   app.post("/api/cases", async (request, reply) => {
     const parsed = createCaseSchema.safeParse(request.body);
     if (!parsed.success) {

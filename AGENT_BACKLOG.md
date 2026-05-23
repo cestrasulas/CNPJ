@@ -35,6 +35,8 @@ Agentes: pegar sempre a **primeira tarefa `PENDENTE`** da lista (topo = maior pr
 | DJ-001 | Spike DataJud | CONCLUÍDA |
 | WS-001 | Modelo investigation_case + rotas CRUD mínimas + UI Casos | CONCLUÍDA |
 | WS-002 | API CRUD mínima de casos | CONCLUÍDA |
+| WS-003 | UI salvar investigação como caso | CONCLUÍDA |
+| RB-002 | Middleware auth backend (rotas protegidas) | CONCLUÍDA |
 
 ---
 
@@ -716,9 +718,11 @@ curl -s -X POST http://127.0.0.1:3001/api/cases -H 'Content-Type: application/js
 
 ### RB-002 — Middleware auth backend (rotas protegidas)
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Proteger `/api/cases` e futuros enrich pagos; rotas públicas de leitura Receita local mantidas.
+
+**Entregue:** `requireAuth` + `AUTH_DISABLED` (default true); JWT Supabase quando auth ativa.
 
 **Arquivos prováveis:**
 - `backend/src/middleware/auth.ts`

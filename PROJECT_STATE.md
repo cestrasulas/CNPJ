@@ -7,11 +7,19 @@ Criado em 2026-05-22:
 - `AGENT_AUTOPILOT.md` — loop de trabalho etapa a etapa, permissões operacionais e limites
 - `AGENT_BACKLOG.md` — backlog priorizado com tarefas pequenas, critérios de aceite e validações
 
-Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **RB-002**.
+Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **MO-001**.
 
 ---
 
 ## Histórico recente
+
+### 2026-05-23 — RB-002 Auth middleware
+
+- `requireAuth` protege `/api/cases/*` quando `AUTH_DISABLED=false`
+- Default `AUTH_DISABLED=true` — demo local sem token
+- Valida JWT via Supabase `auth.getUser`
+- `GET /health` retorna `authDisabled`
+- Validações: backend typecheck/build OK
 
 ### 2026-05-23 — WS-002 / WS-003 Workspace casos
 
@@ -251,7 +259,7 @@ Backend:
 - Endpoint `GET /api/investigation/company/:cnpjBasico/availability`.
 - Endpoint `GET /api/investigation/company/:cnpjBasico/dossier.html`.
 - Endpoint `GET /api/search`.
-- `POST /api/cases`, `GET /api/cases`, `GET /api/cases/:id`, `POST /api/cases/:id/entities`.
+- `POST /api/cases`, `GET /api/cases`, `GET /api/cases/:id`, `POST /api/cases/:id/entities` (protegidas quando `AUTH_DISABLED=false`).
 
 Dados locais conhecidos:
 
@@ -280,7 +288,8 @@ Validação recente:
 - Dossiê HTML v2 com evidências agrupadas — **concluído (DO-001/002)**
 - Grafo: expansão por profundidade — **concluído (GR-002/003)**
 - Exportação PDF do dossiê — **bloqueado (PDF-002)**
-- Workspace de casos — **WS-001 a WS-003 concluídos; próximo RB-002**
+- Workspace de casos — **WS-001 a WS-003 concluídos**
+- RBAC — **RB-002 auth middleware concluído; MO-001 próximo**
 - Força das evidências por grupo econômico candidato
 - Camada Serpro opcional sob demanda
 - CVM e DataJud como fontes abertas complementares
