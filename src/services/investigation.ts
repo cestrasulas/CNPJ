@@ -24,8 +24,9 @@ export type InvestigationRelation = {
 
 export type InvestigationGraphNode = {
   id: string;
-  type: "company" | "partner" | "address";
+  type: "company" | "partner" | "address" | "phone" | "email";
   label: string;
+  cnpjBasico?: string;
 };
 
 export type InvestigationGraphEdge = {
@@ -33,6 +34,9 @@ export type InvestigationGraphEdge = {
   to: string;
   type: string;
   label: string;
+  relationType: string;
+  classification: EvidenceClassification;
+  evidence: InvestigationRelationEvidence;
 };
 
 export type InvestigationFinding = {

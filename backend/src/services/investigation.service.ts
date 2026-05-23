@@ -79,8 +79,9 @@ type EvidenceStrength = {
 
 type GraphNode = {
   id: string;
-  type: "company" | "partner" | "address";
+  type: "company" | "partner" | "address" | "phone" | "email";
   label: string;
+  cnpjBasico?: string;
 };
 
 type GraphEdge = {
@@ -88,6 +89,9 @@ type GraphEdge = {
   to: string;
   type: string;
   label: string;
+  relationType: string;
+  classification: EvidenceClassification;
+  evidence: RelationEvidence;
 };
 
 export async function getInvestigationAvailability(cnpjBasico: string) {
@@ -710,29 +714,126 @@ function buildGraph(target: Empresa, estabelecimentos: Estabelecimento[], socios
   const edges: GraphEdge[] = [];
   const targetId = `company:${target.cnpjBasico}`;
 
-  nodes.set(targetId, { id: targetId, type: "company", label: target.razaoSocial || target.cnpjBasico });
+  nodes.set(targetId, {
+    id: targetId,
+    type: "company",
+    label: target.razaoSocial || target.cnpjBasico,
+    cnpjBasico: target.cnpjBasico,
+  });
 
   for (const socio of socios.slice(0, 20)) {
     const id = `partner:${socio.documento || socio.nome}`;
     nodes.set(id, { id, type: "partner", label: socio.nome || "Sócio" });
-    edges.push({ from: targetId, to: id, type: "partner", label: "sócio" });
+    edges.push(
+      buildGraphEdge(
+        targetId,
+        id,
+        "partner",
+        "sócio",
+        "same_partner",
+        "DECLARADO",
+        buildRelationEvidence(
+          "same_partner",
+          socio.nome || "não identificado",
+          "Sócio/administrador declarado na base local.",
+        ),
+      ),
+    );
   }
 
   for (const est of estabelecimentos.slice(0, 10)) {
     const address = est.enderecoNormalizado || [est.municipio, est.uf].filter(Boolean).join("/");
-    if (!address) continue;
-    const id = `address:${address}`;
-    nodes.set(id, { id, type: "address", label: [est.municipioNome || est.municipio, est.uf].filter(Boolean).join(" / ") || "Endereço" });
-    edges.push({ from: targetId, to: id, type: "address", label: "endereço" });
+    if (address) {
+      const id = `address:${address}`;
+      nodes.set(id, {
+        id,
+        type: "address",
+        label: [est.municipioNome || est.municipio, est.uf].filter(Boolean).join(" / ") || "Endereço",
+      });
+      edges.push(
+        buildGraphEdge(
+          targetId,
+          id,
+          "address",
+          "endereço",
+          "same_address",
+          "INFERIDO",
+          buildRelationEvidence("same_address", address, "Endereço cadastral da empresa investigada."),
+        ),
+      );
+    }
+
+    if (est.telefone) {
+      const phoneId = `phone:${est.telefone}`;
+      if (!nodes.has(phoneId)) {
+        nodes.set(phoneId, { id: phoneId, type: "phone", label: est.telefone });
+        edges.push(
+          buildGraphEdge(
+            targetId,
+            phoneId,
+            "phone",
+            "telefone",
+            "same_phone",
+            "INFERIDO",
+            buildRelationEvidence("same_phone", est.telefone, "Telefone cadastral da empresa investigada."),
+          ),
+        );
+      }
+    }
+
+    if (est.email) {
+      const emailId = `email:${est.email}`;
+      if (!nodes.has(emailId)) {
+        nodes.set(emailId, { id: emailId, type: "email", label: est.email });
+        edges.push(
+          buildGraphEdge(
+            targetId,
+            emailId,
+            "email",
+            "e-mail",
+            "same_email",
+            "INFERIDO",
+            buildRelationEvidence("same_email", est.email, "E-mail cadastral da empresa investigada."),
+          ),
+        );
+      }
+    }
   }
 
   for (const relation of relations.slice(0, 20)) {
     const id = `company:${relation.company.cnpjBasico}`;
-    nodes.set(id, { id, type: "company", label: relation.company.razaoSocial || relation.company.cnpjBasico });
-    edges.push({ from: targetId, to: id, type: relation.type, label: relation.reason });
+    nodes.set(id, {
+      id,
+      type: "company",
+      label: relation.company.razaoSocial || relation.company.cnpjBasico,
+      cnpjBasico: relation.company.cnpjBasico,
+    });
+    edges.push(
+      buildGraphEdge(
+        targetId,
+        id,
+        relation.type,
+        relation.reason,
+        relation.type,
+        relation.classification,
+        relation.evidence,
+      ),
+    );
   }
 
   return { nodes: [...nodes.values()], edges };
+}
+
+function buildGraphEdge(
+  from: string,
+  to: string,
+  type: string,
+  label: string,
+  relationType: string,
+  classification: EvidenceClassification,
+  evidence: RelationEvidence,
+): GraphEdge {
+  return { from, to, type, label, relationType, classification, evidence };
 }
 
 function mapEmpresaRow(row: Record<string, unknown>): Empresa {

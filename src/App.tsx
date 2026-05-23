@@ -13,7 +13,10 @@ import {
   obterDisponibilidadeInvestigacao,
   obterRelatorioInvestigacao,
   obterUrlDossieInvestigacao,
+  type EvidenceClassification,
   type InvestigationAvailability,
+  type InvestigationGraphEdge,
+  type InvestigationGraphNode,
   type InvestigationRelation,
   type InvestigationReport,
 } from "./services/investigation";
@@ -1309,7 +1312,13 @@ function RelatorioInvestigacao({
         </div>
       </div>
 
-      <GrafoInvestigacao nodes={graph.nodes} edges={graph.edges} />
+      <GrafoInvestigacao
+        nodes={graph.nodes}
+        edges={graph.edges}
+        relations={relations}
+        targetCompany={target.company}
+        onAbrirEmpresaReceita={onAbrirEmpresaReceita}
+      />
     </div>
   );
 }
@@ -1442,29 +1451,275 @@ function confidenceBadgeClass(confidence: InvestigationRelation["evidence"]["con
 function GrafoInvestigacao({
   nodes,
   edges,
+  relations,
+  targetCompany,
+  onAbrirEmpresaReceita,
 }: {
-  nodes: InvestigationReport["graph"]["nodes"];
-  edges: InvestigationReport["graph"]["edges"];
+  nodes: InvestigationGraphNode[];
+  edges: InvestigationGraphEdge[];
+  relations: InvestigationRelation[];
+  targetCompany: ReceitaEmpresa;
+  onAbrirEmpresaReceita: (empresa: ReceitaEmpresa) => void;
 }) {
+  const [noSelecionado, setNoSelecionado] = useState<string | null>(null);
+  const [arestaSelecionada, setArestaSelecionada] = useState<string | null>(null);
+  const [filtrosClassificacao, setFiltrosClassificacao] = useState<Record<EvidenceClassification, boolean>>({
+    DECLARADO: true,
+    INFERIDO: true,
+    VALIDADO: true,
+    COMPROVADO: true,
+  });
+
+  const arestasVisiveis = edges.filter((edge) => filtrosClassificacao[edge.classification]);
+  const nosVisiveis = nodes.filter((node) => {
+    if (node.id === `company:${targetCompany.cnpjBasico}`) return true;
+    return arestasVisiveis.some((edge) => edge.from === node.id || edge.to === node.id);
+  });
+
+  const noAtivo = nosVisiveis.find((node) => node.id === noSelecionado) ?? null;
+  const arestaAtiva = arestasVisiveis.find((edge) => chaveAresta(edge) === arestaSelecionada) ?? null;
+
+  const arestasDoNo = noAtivo
+    ? arestasVisiveis.filter((edge) => edge.from === noAtivo.id || edge.to === noAtivo.id)
+    : [];
+
+  function alternarFiltro(classificacao: EvidenceClassification) {
+    setFiltrosClassificacao((atual) => ({ ...atual, [classificacao]: !atual[classificacao] }));
+    setNoSelecionado(null);
+    setArestaSelecionada(null);
+  }
+
+  function selecionarNo(nodeId: string) {
+    setNoSelecionado(nodeId);
+    setArestaSelecionada(null);
+  }
+
+  function selecionarAresta(edge: InvestigationGraphEdge) {
+    setArestaSelecionada(chaveAresta(edge));
+    setNoSelecionado(null);
+  }
+
+  function empresaDoNo(node: InvestigationGraphNode): ReceitaEmpresa | null {
+    if (node.type !== "company" || !node.cnpjBasico) return null;
+    if (node.cnpjBasico === targetCompany.cnpjBasico) return targetCompany;
+    const relation = relations.find((item) => item.company.cnpjBasico === node.cnpjBasico);
+    if (relation) return relation.company;
+    return {
+      cnpjBasico: node.cnpjBasico,
+      razaoSocial: node.label,
+      naturezaJuridica: null,
+      qualificacaoResponsavel: null,
+      capitalSocial: null,
+      porte: null,
+    };
+  }
+
   return (
     <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950 p-4">
-      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Grafo visual</p>
-      <div className="mt-4 flex flex-wrap gap-3">
-        {nodes.slice(0, 24).map((node) => (
-          <div key={node.id} className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-bold text-cyan-100">
-            {node.label}
-          </div>
-        ))}
-      </div>
-      <div className="mt-4 space-y-2">
-        {edges.slice(0, 30).map((edge, index) => (
-          <p key={`${edge.from}-${edge.to}-${index}`} className="text-xs text-slate-400">
-            {edge.label}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-cyan-300">Grafo investigável</p>
+          <p className="mt-1 text-sm text-slate-400">
+            Clique em nós e conexões para entender entidades, evidências e próximos passos.
           </p>
-        ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(["DECLARADO", "INFERIDO", "VALIDADO", "COMPROVADO"] as EvidenceClassification[]).map((classificacao) => (
+            <button
+              key={classificacao}
+              onClick={() => alternarFiltro(classificacao)}
+              className={`rounded-lg border px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-opacity ${
+                filtrosClassificacao[classificacao]
+                  ? classificationBadgeClass(classificacao)
+                  : "border-slate-700 bg-slate-900 text-slate-500 opacity-50"
+              }`}
+            >
+              {classificacao}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Nós ({nosVisiveis.length})</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {nosVisiveis.map((node) => {
+              const conexoes = arestasVisiveis.filter((edge) => edge.from === node.id || edge.to === node.id);
+              const classificacaoPrincipal = conexoes[0]?.classification ?? "DECLARADO";
+              return (
+                <button
+                  key={node.id}
+                  onClick={() => selecionarNo(node.id)}
+                  className={`rounded-xl border px-3 py-2 text-left text-xs transition-colors ${
+                    noSelecionado === node.id
+                      ? `${classificationNodeClass(classificacaoPrincipal)} ring-2 ring-white/20`
+                      : `${classificationNodeClass(classificacaoPrincipal)} hover:brightness-110`
+                  }`}
+                >
+                  <p className="font-bold">{node.label}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-widest opacity-80">{rotuloTipoNo(node.type)}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="mt-5 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            Conexões ({arestasVisiveis.length})
+          </p>
+          <div className="mt-3 space-y-2">
+            {arestasVisiveis.map((edge) => {
+              const origem = nodes.find((node) => node.id === edge.from);
+              const destino = nodes.find((node) => node.id === edge.to);
+              return (
+                <button
+                  key={chaveAresta(edge)}
+                  onClick={() => selecionarAresta(edge)}
+                  className={`w-full rounded-xl border p-3 text-left transition-colors ${
+                    arestaSelecionada === chaveAresta(edge)
+                      ? `${classificationEdgeClass(edge.classification)} ring-2 ring-white/20`
+                      : `${classificationEdgeClass(edge.classification)} hover:brightness-110`
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${classificationBadgeClass(edge.classification)}`}>
+                      {edge.classification}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                      {edge.relationType}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-200">
+                    {origem?.label ?? edge.from} → {destino?.label ?? edge.to}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">{edge.label}</p>
+                </button>
+              );
+            })}
+            {arestasVisiveis.length === 0 && (
+              <p className="text-sm text-slate-500">Nenhuma conexão visível com os filtros atuais.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+          {!noAtivo && !arestaAtiva && (
+            <p className="text-sm text-slate-400">
+              Selecione um nó ou uma conexão para ver tipo, evidências e próximas entidades investigáveis.
+            </p>
+          )}
+
+          {noAtivo && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">Detalhe do nó</p>
+              <h4 className="mt-2 text-lg font-black text-white">{noAtivo.label}</h4>
+              <p className="mt-1 text-xs text-slate-400">Tipo: {rotuloTipoNo(noAtivo.type)}</p>
+              {noAtivo.cnpjBasico && (
+                <p className="mt-1 text-xs text-cyan-300">CNPJ básico: {noAtivo.cnpjBasico}</p>
+              )}
+
+              <div className="mt-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Conexões diretas</p>
+                {arestasDoNo.length > 0 ? (
+                  <ul className="mt-2 space-y-2">
+                    {arestasDoNo.map((edge) => {
+                      const outroNoId = edge.from === noAtivo.id ? edge.to : edge.from;
+                      const outroNo = nodes.find((node) => node.id === outroNoId);
+                      return (
+                        <li key={chaveAresta(edge)} className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${classificationBadgeClass(edge.classification)}`}>
+                              {edge.classification}
+                            </span>
+                            <span className="text-[10px] text-slate-400">Confiança {edge.evidence.confidence}</span>
+                          </div>
+                          <p className="mt-2 text-xs text-slate-200">
+                            {edge.relationType} → {outroNo?.label ?? outroNoId}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-400">{edge.evidence.explanation}</p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">Sem conexões visíveis.</p>
+                )}
+              </div>
+
+              {noAtivo.type === "company" && noAtivo.cnpjBasico && noAtivo.cnpjBasico !== targetCompany.cnpjBasico && (
+                <button
+                  onClick={() => {
+                    const empresa = empresaDoNo(noAtivo);
+                    if (empresa) onAbrirEmpresaReceita(empresa);
+                  }}
+                  className="mt-4 w-full rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/20"
+                >
+                  Investigar esta empresa
+                </button>
+              )}
+            </div>
+          )}
+
+          {arestaAtiva && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">Detalhe da conexão</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${classificationBadgeClass(arestaAtiva.classification)}`}>
+                  {arestaAtiva.classification}
+                </span>
+                <span className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${confidenceBadgeClass(arestaAtiva.evidence.confidence)}`}>
+                  Confiança {arestaAtiva.evidence.confidence}
+                </span>
+              </div>
+              <p className="mt-3 text-sm font-bold text-white">{arestaAtiva.relationType}</p>
+              <p className="mt-1 text-xs text-slate-400">{arestaAtiva.label}</p>
+
+              <div className="mt-4 space-y-2 text-xs text-slate-300">
+                <p><span className="font-bold text-slate-100">Campo:</span> {arestaAtiva.evidence.field}</p>
+                <p><span className="font-bold text-slate-100">Valor:</span> {arestaAtiva.evidence.value || "Não informado"}</p>
+                <p><span className="font-bold text-slate-100">Explicação:</span> {arestaAtiva.evidence.explanation}</p>
+                <p><span className="font-bold text-slate-100">Fonte:</span> {arestaAtiva.evidence.source}</p>
+              </div>
+
+              <p className="mt-4 text-[10px] leading-5 text-slate-500">
+                A força desta relação decorre destas evidências e possui as limitações exibidas no bloco de força das evidências.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
+}
+
+function chaveAresta(edge: InvestigationGraphEdge): string {
+  return `${edge.from}|${edge.to}|${edge.relationType}|${edge.label}`;
+}
+
+function rotuloTipoNo(type: InvestigationGraphNode["type"]): string {
+  if (type === "company") return "empresa";
+  if (type === "partner") return "sócio";
+  if (type === "address") return "endereço";
+  if (type === "phone") return "telefone";
+  return "e-mail";
+}
+
+function classificationBadgeClass(classification: EvidenceClassification): string {
+  if (classification === "DECLARADO") return "border-cyan-500/30 bg-cyan-500/15 text-cyan-100";
+  if (classification === "INFERIDO") return "border-amber-500/30 bg-amber-500/15 text-amber-100";
+  if (classification === "VALIDADO") return "border-emerald-500/30 bg-emerald-500/15 text-emerald-100";
+  return "border-violet-500/30 bg-violet-500/15 text-violet-100";
+}
+
+function classificationNodeClass(classification: EvidenceClassification): string {
+  if (classification === "DECLARADO") return "border-cyan-500/40 bg-cyan-500/10 text-cyan-100";
+  if (classification === "INFERIDO") return "border-amber-500/40 bg-amber-500/10 text-amber-100";
+  if (classification === "VALIDADO") return "border-emerald-500/40 bg-emerald-500/10 text-emerald-100";
+  return "border-violet-500/40 bg-violet-500/10 text-violet-100";
+}
+
+function classificationEdgeClass(classification: EvidenceClassification): string {
+  return classificationNodeClass(classification);
 }
 
 function ComparacaoEmpresas({
