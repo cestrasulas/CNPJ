@@ -332,7 +332,7 @@ Dados locais conhecidos:
 | Tabela | Registros |
 |---|---:|
 | `receita_empresas` | 27.628.041 |
-| `receita_estabelecimentos` | 4.853.435 (após Estabelecimentos1; import 1–9 em andamento) |
+| `receita_estabelecimentos` | 9.606.870 (após Estabelecimentos2; import 3–9 + Sócios em andamento) |
 | `receita_socios` | 1.187.000 |
 | `receita_municipios` | 5.572 |
 | `investigation_watch` | 1 (demo) |
@@ -449,3 +449,32 @@ Diferença:
 - CADASTRAL: -2.07%
 
 Nota: `cnpjs_completos` passou de 7 → 24; STRONG só sobe com mais partições de Sócios (1–9).
+
+#### Importação: Estabelecimentos2.zip
+
+Status: ok
+
+Antes:
+
+- STRONG: 1.79%
+- PARTIAL: 2.16%
+- CADASTRAL: 96.05%
+- estabelecimentos: 4.853.435
+- socios: 1.187.000
+
+Depois:
+
+- STRONG: 1.79%
+- PARTIAL: 12.07%
+- CADASTRAL: 86.14%
+- estabelecimentos: 9.606.870
+- socios: 1.187.000
+
+Diferença:
+
+- STRONG: +0%
+- PARTIAL: +9.91%
+- CADASTRAL: -9.91%
+
+Nota: `cnpjs_completos` 24 → 1.257.
+

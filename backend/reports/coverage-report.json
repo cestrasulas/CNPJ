@@ -1,98 +1,98 @@
 {
-  "generatedAt": "2026-05-23T04:28:43.199Z",
+  "generatedAt": "2026-05-23T05:21:03.461Z",
   "totals": {
     "total_empresas": 27628041,
-    "total_estabelecimentos": 100000,
+    "total_estabelecimentos": 9606870,
     "total_socios": 1187000,
-    "cnpjs_empresa_estabelecimento": 26251,
+    "cnpjs_empresa_estabelecimento": 3335927,
     "cnpjs_empresa_socios": 494299,
-    "cnpjs_completos": 7
+    "cnpjs_completos": 1257
   },
   "investigation_status": {
     "STRONG": 494299,
-    "PARTIAL": 26244,
-    "CADASTRAL": 27107498,
+    "PARTIAL": 3334670,
+    "CADASTRAL": 23799072,
     "percent": {
       "STRONG": 1.79,
-      "PARTIAL": 0.09,
-      "CADASTRAL": 98.12
+      "PARTIAL": 12.07,
+      "CADASTRAL": 86.14
     }
   },
   "top_municipios": [
     {
       "municipio": "7107",
       "uf": "SP",
-      "total": 6995
-    },
-    {
-      "municipio": "8801",
-      "uf": "RS",
-      "total": 5590
+      "total": 860650
     },
     {
       "municipio": "6001",
       "uf": "RJ",
-      "total": 2794
-    },
-    {
-      "municipio": "9701",
-      "uf": "DF",
-      "total": 1609
-    },
-    {
-      "municipio": "9373",
-      "uf": "GO",
-      "total": 1591
+      "total": 350511
     },
     {
       "municipio": "4123",
       "uf": "MG",
-      "total": 1533
+      "total": 184536
+    },
+    {
+      "municipio": "9701",
+      "uf": "DF",
+      "total": 161484
     },
     {
       "municipio": "7535",
       "uf": "PR",
-      "total": 1481
+      "total": 149897
     },
     {
       "municipio": "3849",
       "uf": "BA",
-      "total": 1305
+      "total": 134163
+    },
+    {
+      "municipio": "8801",
+      "uf": "RS",
+      "total": 129588
     },
     {
       "municipio": "1389",
       "uf": "CE",
-      "total": 1228
+      "total": 123675
     },
     {
-      "municipio": "8599",
-      "uf": "RS",
-      "total": 929
+      "municipio": "9373",
+      "uf": "GO",
+      "total": 102691
     },
     {
       "municipio": "2531",
       "uf": "PE",
-      "total": 776
+      "total": 84937
     },
     {
-      "municipio": "8589",
-      "uf": "RS",
-      "total": 761
+      "municipio": "6291",
+      "uf": "SP",
+      "total": 75039
     },
     {
-      "municipio": "8791",
-      "uf": "RS",
-      "total": 751
+      "municipio": "0255",
+      "uf": "AM",
+      "total": 72781
+    },
+    {
+      "municipio": "6477",
+      "uf": "SP",
+      "total": 64066
     },
     {
       "municipio": "0427",
       "uf": "PA",
-      "total": 681
+      "total": 52125
     },
     {
-      "municipio": "8771",
-      "uf": "RS",
-      "total": 673
+      "municipio": "9051",
+      "uf": "MS",
+      "total": 50736
     }
   ],
   "top_nomes_socios": [
@@ -159,64 +159,64 @@
   ],
   "top_telefones_compartilhados": [
     {
+      "telefone": "00",
+      "empresas_distintas": 326583
+    },
+    {
       "telefone": "000000000000",
-      "empresas_distintas": 687
+      "empresas_distintas": 151198
     },
     {
       "telefone": "4197880145",
-      "empresas_distintas": 58
-    },
-    {
-      "telefone": "00",
-      "empresas_distintas": 40
+      "empresas_distintas": 8833
     },
     {
       "telefone": "1199999999",
-      "empresas_distintas": 35
+      "empresas_distintas": 5869
     },
     {
-      "telefone": "2125160368",
-      "empresas_distintas": 18
+      "telefone": "4196869828",
+      "empresas_distintas": 5828
     },
     {
       "telefone": "110",
-      "empresas_distintas": 17
+      "empresas_distintas": 4790
     },
     {
-      "telefone": "4198130414",
-      "empresas_distintas": 16
-    },
-    {
-      "telefone": "1131241000",
-      "empresas_distintas": 15
-    },
-    {
-      "telefone": "9999999999",
-      "empresas_distintas": 13
+      "telefone": "1140090000",
+      "empresas_distintas": 3897
     },
     {
       "telefone": "1111111111",
-      "empresas_distintas": 13
+      "empresas_distintas": 3729
     },
     {
-      "telefone": "2122222222",
-      "empresas_distintas": 11
+      "telefone": "0000000000",
+      "empresas_distintas": 3369
+    },
+    {
+      "telefone": "4198880068",
+      "empresas_distintas": 3222
     },
     {
       "telefone": "210",
-      "empresas_distintas": 11
+      "empresas_distintas": 2893
+    },
+    {
+      "telefone": "2122222222",
+      "empresas_distintas": 2421
+    },
+    {
+      "telefone": "1100000000",
+      "empresas_distintas": 2250
+    },
+    {
+      "telefone": "9999999999",
+      "empresas_distintas": 2122
     },
     {
       "telefone": "2199999999",
-      "empresas_distintas": 11
-    },
-    {
-      "telefone": "1136845122",
-      "empresas_distintas": 10
-    },
-    {
-      "telefone": "1130034828",
-      "empresas_distintas": 8
+      "empresas_distintas": 1492
     }
   ]
 }
