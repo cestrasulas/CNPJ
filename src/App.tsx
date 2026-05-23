@@ -29,6 +29,14 @@ import {
   type InvestigationCase,
   type InvestigationCaseDetail,
 } from "./services/cases";
+import {
+  criarWatch,
+  listarEventosWatch,
+  listarWatches,
+  removerWatch,
+  type InvestigationWatch,
+  type InvestigationWatchEvent,
+} from "./services/watch";
 import { normalizarEmpresa } from "./services/normalizer";
 import { consultarProvider } from "./services/providers";
 import {
@@ -115,6 +123,11 @@ export default function App() {
   const [erroCasos, setErroCasos] = useState("");
   const [salvandoInvestigacaoComoCaso, setSalvandoInvestigacaoComoCaso] = useState(false);
   const [feedbackSalvarCaso, setFeedbackSalvarCaso] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [watches, setWatches] = useState<InvestigationWatch[]>([]);
+  const [watchSelecionadoId, setWatchSelecionadoId] = useState<string | null>(null);
+  const [eventosWatch, setEventosWatch] = useState<InvestigationWatchEvent[]>([]);
+  const [loadingWatches, setLoadingWatches] = useState(false);
+  const [erroWatches, setErroWatches] = useState("");
   const [historico, setHistorico] = useState<HistoricoItem[]>(() => {
     try {
       const salvo = localStorage.getItem(HISTORICO_KEY);
@@ -173,7 +186,68 @@ export default function App() {
 
   useEffect(() => {
     void carregarCasosInvestigacao();
+    void carregarWatches();
   }, []);
+
+  async function carregarWatches() {
+    try {
+      setErroWatches("");
+      setLoadingWatches(true);
+      const lista = await listarWatches();
+      setWatches(lista);
+    } catch (error) {
+      setErroWatches(error instanceof Error ? error.message : "Erro ao carregar monitoramento.");
+    } finally {
+      setLoadingWatches(false);
+    }
+  }
+
+  async function selecionarWatch(id: string) {
+    try {
+      setErroWatches("");
+      setWatchSelecionadoId(id);
+      const eventos = await listarEventosWatch(id, 10);
+      setEventosWatch(eventos);
+    } catch (error) {
+      setErroWatches(error instanceof Error ? error.message : "Erro ao carregar eventos do watch.");
+    }
+  }
+
+  async function adicionarEmpresaSelecionadaAoWatch() {
+    if (!empresaReceitaSelecionada) return;
+
+    try {
+      setErroWatches("");
+      setLoadingWatches(true);
+      const created = await criarWatch({
+        cnpjBasico: empresaReceitaSelecionada.cnpjBasico,
+        label: empresaReceitaSelecionada.razaoSocial || empresaReceitaSelecionada.cnpjBasico,
+      });
+      await carregarWatches();
+      await selecionarWatch(created.id);
+    } catch (error) {
+      setErroWatches(error instanceof Error ? error.message : "Erro ao adicionar empresa ao monitoramento.");
+    } finally {
+      setLoadingWatches(false);
+    }
+  }
+
+  async function removerWatchSelecionado(id: string) {
+    try {
+      setErroWatches("");
+      setLoadingWatches(true);
+      await removerWatch(id);
+      if (watchSelecionadoId === id) {
+        setWatchSelecionadoId(null);
+        setEventosWatch([]);
+      }
+      await carregarWatches();
+    } catch (error) {
+      setErroWatches(error instanceof Error ? error.message : "Erro ao remover watch.");
+    } finally {
+      setLoadingWatches(false);
+    }
+  }
 
   async function carregarCasosInvestigacao() {
     try {
@@ -728,6 +802,19 @@ export default function App() {
           onSelecionarCaso={selecionarCasoInvestigacao}
           onAdicionarEmpresa={adicionarEmpresaSelecionadaAoCaso}
           onRecarregar={carregarCasosInvestigacao}
+        />
+
+        <SecaoMonitoramento
+          watches={watches}
+          watchSelecionadoId={watchSelecionadoId}
+          eventos={eventosWatch}
+          loading={loadingWatches}
+          erro={erroWatches}
+          empresaSelecionada={empresaReceitaSelecionada}
+          onRecarregar={carregarWatches}
+          onSelecionarWatch={selecionarWatch}
+          onAdicionarEmpresa={() => void adicionarEmpresaSelecionadaAoWatch()}
+          onRemoverWatch={(id) => void removerWatchSelecionado(id)}
         />
 
         <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl">
@@ -2705,6 +2792,178 @@ function SecaoCasosInvestigacao({
       )}
     </section>
   );
+}
+
+function SecaoMonitoramento({
+  watches,
+  watchSelecionadoId,
+  eventos,
+  loading,
+  erro,
+  empresaSelecionada,
+  onRecarregar,
+  onSelecionarWatch,
+  onAdicionarEmpresa,
+  onRemoverWatch,
+}: {
+  watches: InvestigationWatch[];
+  watchSelecionadoId: string | null;
+  eventos: InvestigationWatchEvent[];
+  loading: boolean;
+  erro: string;
+  empresaSelecionada: ReceitaEmpresa | null;
+  onRecarregar: () => void;
+  onSelecionarWatch: (id: string) => void;
+  onAdicionarEmpresa: () => void;
+  onRemoverWatch: (id: string) => void;
+}) {
+  const watchSelecionado = watches.find((watch) => watch.id === watchSelecionadoId) ?? null;
+
+  return (
+    <section className="mb-6 rounded-3xl border border-emerald-500/20 bg-slate-900 p-5 shadow-xl">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-300">Monitoramento</p>
+          <h2 className="mt-2 text-2xl font-black text-white">Empresas observadas</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Registre CNPJs para acompanhar mudanças declaradas em sócios e contatos na base local.
+          </p>
+        </div>
+        <button
+          onClick={() => void onRecarregar()}
+          disabled={loading}
+          className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+        >
+          Atualizar
+        </button>
+      </div>
+
+      {erro && (
+        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+          {erro}
+        </div>
+      )}
+
+      {empresaSelecionada && (
+        <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-emerald-200">Empresa selecionada</p>
+          <p className="mt-1 text-sm font-bold text-white">
+            {empresaSelecionada.razaoSocial || empresaSelecionada.cnpjBasico}
+          </p>
+          <button
+            onClick={onAdicionarEmpresa}
+            disabled={loading}
+            className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
+          >
+            Observar empresa selecionada
+          </button>
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+            Observadas ({watches.length})
+          </p>
+          {loading && watches.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-400">Carregando watches...</p>
+          ) : watches.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-400">Nenhuma empresa observada ainda.</p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {watches.map((watch) => (
+                <div
+                  key={watch.id}
+                  className={`rounded-xl border p-3 transition-colors ${
+                    watchSelecionadoId === watch.id
+                      ? "border-emerald-400 bg-emerald-500/10"
+                      : "border-slate-800 bg-slate-900"
+                  }`}
+                >
+                  <button
+                    onClick={() => void onSelecionarWatch(watch.id)}
+                    className="w-full text-left"
+                  >
+                    <p className="font-bold text-white">{watch.label || watch.cnpjBasico}</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      CNPJ básico {watch.cnpjBasico}
+                      {" · "}
+                      Última verificação: {formatarDataMonitoramento(watch.lastCheckedAt)}
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => onRemoverWatch(watch.id)}
+                    disabled={loading}
+                    className="mt-2 text-xs font-bold text-red-300 hover:text-red-200 disabled:opacity-50"
+                  >
+                    Remover observação
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Últimos eventos</p>
+          {!watchSelecionado ? (
+            <p className="mt-3 text-sm text-slate-400">Selecione uma empresa observada para ver o diff.</p>
+          ) : eventos.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-400">
+              Nenhum evento registrado para {watchSelecionado.label || watchSelecionado.cnpjBasico}.
+              Execute <code className="text-emerald-200">npm run watch:diff</code> no backend.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {eventos.map((evento) => (
+                <li
+                  key={evento.id}
+                  className="rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2 text-sm text-slate-200"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${badgeEventoWatch(evento.changeType)}`}>
+                      {rotuloMudancaWatch(evento.changeType)}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      {rotuloCategoriaWatch(evento.category)}
+                    </span>
+                    <span className="text-[10px] text-slate-500">{formatarDataMonitoramento(evento.createdAt)}</span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-300">{evento.description}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function formatarDataMonitoramento(value: string | null): string {
+  if (!value) return "nunca";
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("pt-BR");
+}
+
+function rotuloCategoriaWatch(category: InvestigationWatchEvent["category"]): string {
+  if (category === "partners") return "Sócios";
+  if (category === "phones") return "Telefones";
+  return "E-mails";
+}
+
+function rotuloMudancaWatch(changeType: InvestigationWatchEvent["changeType"]): string {
+  if (changeType === "added") return "Novo";
+  if (changeType === "removed") return "Removido";
+  return "Baseline";
+}
+
+function badgeEventoWatch(changeType: InvestigationWatchEvent["changeType"]): string {
+  if (changeType === "added") return "bg-emerald-500/20 text-emerald-200";
+  if (changeType === "removed") return "bg-red-500/20 text-red-200";
+  return "bg-slate-700/60 text-slate-300";
 }
 
 // ——— Helpers ———

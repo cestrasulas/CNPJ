@@ -5,6 +5,7 @@ import {
   createWatch,
   deleteWatch,
   getWatchById,
+  listWatchEvents,
   listWatches,
   updateWatch,
 } from "../services/watch.service.js";
@@ -84,6 +85,37 @@ export async function watchRoutes(app: FastifyInstance) {
       request.log.error(error);
       return reply.status(502).send({
         error: "Falha ao buscar watch",
+        message: formatErrorMessage(error),
+      });
+    }
+  });
+
+  app.get("/api/watch/:id/events", async (request, reply) => {
+    const params = request.params as { id: string };
+    const query = request.query as { limit?: string };
+    const limit = query.limit ? Number(query.limit) : 10;
+
+    if (!Number.isFinite(limit) || limit < 1 || limit > 50) {
+      return reply.status(400).send({
+        error: "Parâmetro inválido",
+        message: "limit deve ser um número entre 1 e 50.",
+      });
+    }
+
+    try {
+      const events = await listWatchEvents(params.id, limit);
+      return reply.send({ data: events });
+    } catch (error) {
+      if (error instanceof Error && error.message === "WATCH_NOT_FOUND") {
+        return reply.status(404).send({
+          error: "Watch não encontrado",
+          message: "Nenhuma empresa observada encontrada com este id.",
+        });
+      }
+
+      request.log.error(error);
+      return reply.status(502).send({
+        error: "Falha ao listar eventos do watch",
         message: formatErrorMessage(error),
       });
     }

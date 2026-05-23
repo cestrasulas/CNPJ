@@ -7,11 +7,19 @@ Criado em 2026-05-22:
 - `AGENT_AUTOPILOT.md` — loop de trabalho etapa a etapa, permissões operacionais e limites
 - `AGENT_BACKLOG.md` — backlog priorizado com tarefas pequenas, critérios de aceite e validações
 
-Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **MO-003**.
+Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **nenhuma desbloqueada** (ver tarefas bloqueadas).
 
 ---
 
 ## Histórico recente
+
+### 2026-05-23 — MO-003 UI monitoramento
+
+- Seção **Empresas observadas** na UI: listar, adicionar, remover watch
+- Exibe últimos eventos de diff por watch selecionado
+- Endpoint `GET /api/watch/:id/events`
+- `apiDelete` no frontend; `src/services/watch.ts`
+- Validações: backend + frontend typecheck/build OK
 
 ### 2026-05-23 — MO-002 Watch diff job
 
@@ -276,7 +284,7 @@ Backend:
 - Endpoint `GET /api/investigation/company/:cnpjBasico/dossier.html`.
 - Endpoint `GET /api/search`.
 - `POST /api/cases`, `GET /api/cases`, `GET /api/cases/:id`, `POST /api/cases/:id/entities` (protegidas quando `AUTH_DISABLED=false`).
-- `POST/GET /api/watch`, `GET/PATCH/DELETE /api/watch/:id` (protegidas quando `AUTH_DISABLED=false`).
+- `POST/GET /api/watch`, `GET/PATCH/DELETE /api/watch/:id`, `GET /api/watch/:id/events` (protegidas quando `AUTH_DISABLED=false`).
 
 Dados locais conhecidos:
 
@@ -307,7 +315,7 @@ Validação recente:
 - Exportação PDF do dossiê — **bloqueado (PDF-002)**
 - Workspace de casos — **WS-001 a WS-003 concluídos**
 - RBAC — **RB-002 auth middleware concluído**
-- Monitoramento — **MO-001/MO-002 concluídos; MO-003 próximo**
+- Monitoramento — **MO-001 a MO-003 concluídos**
 - Força das evidências por grupo econômico candidato
 - Camada Serpro opcional sob demanda
 - CVM e DataJud como fontes abertas complementares

@@ -39,6 +39,7 @@ Agentes: pegar sempre a **primeira tarefa `PENDENTE`** da lista (topo = maior pr
 | RB-002 | Middleware auth backend (rotas protegidas) | CONCLUÍDA |
 | MO-001 | Modelo investigation_watch + API CRUD | CONCLUÍDA |
 | MO-002 | Job diff sócios/contatos | CONCLUÍDA |
+| MO-003 | UI empresas monitoradas | CONCLUÍDA |
 
 ---
 
@@ -805,9 +806,11 @@ cd backend && npm run watch:diff -- --cnpj=62909728
 
 ### MO-003 — UI: lista de empresas monitoradas
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Tela/seção com watches e últimos eventos.
+
+**Entregue:** Seção **Empresas observadas** + `GET /api/watch/:id/events` + `src/services/watch.ts`.
 
 **Arquivos prováveis:**
 - `src/App.tsx`

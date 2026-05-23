@@ -7,6 +7,7 @@ import {
   updateInvestigationWatch,
   type InvestigationWatchRow,
 } from "../repositories/watch.repository.js";
+import { listRecentWatchEvents, type WatchDiffEventRow } from "../repositories/watchDiff.repository.js";
 
 export type InvestigationWatch = {
   id: string;
@@ -16,6 +17,15 @@ export type InvestigationWatch = {
   lastCheckedAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type InvestigationWatchEvent = {
+  id: string;
+  watchId: string;
+  category: "partners" | "phones" | "emails";
+  changeType: "added" | "removed" | "baseline";
+  description: string;
+  createdAt: string;
 };
 
 function mapWatch(row: InvestigationWatchRow): InvestigationWatch {
@@ -70,4 +80,25 @@ export async function updateWatch(
 
 export async function deleteWatch(id: string): Promise<boolean> {
   return deleteInvestigationWatch(id);
+}
+
+function mapWatchEvent(row: WatchDiffEventRow): InvestigationWatchEvent {
+  return {
+    id: row.id,
+    watchId: row.watch_id,
+    category: row.category,
+    changeType: row.changeType,
+    description: row.description,
+    createdAt: row.created_at,
+  };
+}
+
+export async function listWatchEvents(watchId: string, limit = 10): Promise<InvestigationWatchEvent[]> {
+  const watch = await findInvestigationWatchById(watchId);
+  if (!watch) {
+    throw new Error("WATCH_NOT_FOUND");
+  }
+
+  const rows = await listRecentWatchEvents(watchId, limit);
+  return rows.map(mapWatchEvent);
 }
