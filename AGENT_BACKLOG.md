@@ -18,6 +18,22 @@ Agentes: pegar sempre a **primeira tarefa `PENDENTE`** da lista (topo = maior pr
 | EV-002 | Classificação DECLARADO / INFERIDO por relação | CONCLUÍDA |
 | GR-001 | Grafo navegável com painel de evidências | CONCLUÍDA |
 | BS-001 | Busca unificada investigativa (`GET /api/search`) | CONCLUÍDA |
+| ER-003 | Penalizar força global com homônimos LOW | CONCLUÍDA |
+| ER-004 | entityConfidence no dossiê HTML | CONCLUÍDA |
+| ER-005 | Cap nomes ultra-frequentes | CONCLUÍDA |
+| DO-001 | Dossiê agrupado por tipo | CONCLUÍDA |
+| DO-002 | Limitações expandidas no dossiê | CONCLUÍDA |
+| DO-003 | Preview limitações na UI | CONCLUÍDA |
+| MU-001 | Join município → nome | CONCLUÍDA |
+| MU-002 | Busca por município | CONCLUÍDA |
+| BE-001 | Normalização endereço na busca | CONCLUÍDA |
+| BE-002 | Busca por CEP | CONCLUÍDA |
+| GR-002 | Parâmetro depth=2 na API | CONCLUÍDA |
+| GR-003 | UI seletor profundidade | CONCLUÍDA |
+| PDF-001 | Spike estratégia PDF | CONCLUÍDA |
+| CVM-001 | Spike fontes CVM | CONCLUÍDA |
+| DJ-001 | Spike DataJud | CONCLUÍDA |
+| RB-001 | Spike modelo RBAC | CONCLUÍDA |
 
 ---
 
@@ -25,7 +41,7 @@ Agentes: pegar sempre a **primeira tarefa `PENDENTE`** da lista (topo = maior pr
 
 ### ER-003 — Penalizar força global quando há homônimos LOW
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Ajustar `buildEvidenceStrength` para não elevar força global quando muitas relações `same_partner` têm `entityConfidence.level === LOW`.
 
@@ -58,7 +74,7 @@ curl -s "http://127.0.0.1:3001/api/investigation/company/14919958" | python3 -c 
 
 ### ER-004 — Expor `entityConfidence` no dossiê HTML
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Tabela e achados do dossiê HTML devem mostrar confiança de entidade e aviso de homônimos quando LOW/MEDIUM.
 
@@ -87,7 +103,7 @@ curl -s "http://127.0.0.1:3001/api/investigation/company/14919958/dossier.html" 
 
 ### ER-005 — Filtrar ou rebaixar matches só por nome em nomes ultra-frequentes
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Lista curta de nomes estatisticamente frequentes (ex.: "JOSE CARLOS DA SILVA") não gera dezenas de relações HIGH/DECLARADO por nome isolado.
 
@@ -119,7 +135,7 @@ curl -s "http://127.0.0.1:3001/api/investigation/company/14919958" | python3 -c 
 
 ### DO-001 — Agrupar relações por tipo no dossiê HTML
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Dossiê HTML organiza relações em seções (sócio, telefone, e-mail, endereço, matriz/filiais) em vez de tabela única plana.
 
@@ -148,7 +164,7 @@ curl -s "http://127.0.0.1:3001/api/investigation/company/62909728/dossier.html" 
 
 ### DO-002 — Bloco "Limitações da base" expandido no dossiê
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Seção dedicada com bullets oficiais (CPF mascarado, sem UBO, sem atos, homônimos, amostra parcial) + limitações dinâmicas do relatório (`summary.dataLimitations`, `evidenceStrength.limitations`).
 
@@ -176,7 +192,7 @@ curl -s "http://127.0.0.1:3001/api/investigation/company/62909728/dossier.html" 
 
 ### DO-003 — Botão/link dossiê v2 na UI com preview das limitações
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** UI de investigação destaca limitações antes de abrir dossiê (tooltip ou bloco colapsável).
 
@@ -203,7 +219,7 @@ curl -s "http://127.0.0.1:3001/api/investigation/company/62909728/dossier.html" 
 
 ### MU-001 — Join consistente município código → nome em estabelecimentos
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Estabelecimentos exibem `municipioNome` resolvido via `receita_municipios` quando código IBGE existir.
 
@@ -233,7 +249,7 @@ docker exec cnpj-receita-postgres psql -U cnpj -d cnpj_receita -c "SELECT count(
 
 ### MU-002 — Normalizar município na busca investigativa
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Busca por termo de município aceita nome ou código e retorna resultados consistentes.
 
@@ -264,7 +280,7 @@ curl -s "http://127.0.0.1:3001/api/search?q=3550308&limit=3"
 
 ### BE-001 — Normalização de logradouro (trim, caixa, abreviações básicas)
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** `endereco_normalizado` ou camada de query trata abreviações comuns (R., AV., EST.) na busca.
 
@@ -294,7 +310,7 @@ curl -s "http://127.0.0.1:3001/api/search?q=RUA%20&limit=5"
 
 ### BE-002 — Busca por CEP + número no endpoint unificado
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Query `q=` detecta padrão CEP e busca em estabelecimentos.
 
@@ -325,7 +341,7 @@ curl -s "http://127.0.0.1:3001/api/search?q=01310100&limit=5"
 
 ### GR-002 — Parâmetro `depth` na investigação (depth=1 default)
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** API aceita `?depth=2` para incluir relações de segundo nível (empresa relacionada → outra empresa), com teto de nós/arestas.
 
@@ -356,7 +372,7 @@ curl -s "http://127.0.0.1:3001/api/investigation/company/62909728?depth=2" | pyt
 
 ### GR-003 — UI: controle de profundidade no grafo
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Seletor depth 1/2 na UI recarrega investigação e atualiza grafo.
 
@@ -384,7 +400,7 @@ curl -s "http://127.0.0.1:3001/api/investigation/company/62909728?depth=2" | pyt
 
 ### PDF-001 — Spike: escolha de estratégia PDF (puppeteer vs print HTML)
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Documento curto em `docs/pdf-export-spike.md` comparando opções; **sem implementar** ainda.
 
@@ -408,7 +424,7 @@ curl -s "http://127.0.0.1:3001/api/investigation/company/62909728?depth=2" | pyt
 
 ### PDF-002 — Endpoint `dossier.pdf` a partir do HTML existente
 
-**Status:** PENDENTE
+**Status:** BLOQUEADA — aguarda decisão de produto (ver `docs/pdf-export-spike.md`); Puppeteer/Gotenberg requer confirmação.
 
 **Objetivo:** Gerar PDF do dossiê de investigação para download.
 
@@ -440,7 +456,7 @@ curl -s -o /tmp/dossier.pdf "http://127.0.0.1:3001/api/investigation/company/629
 
 ### SR-001 — Contrato e feature flag Serpro (sem chamar API real)
 
-**Status:** PENDENTE
+**Status:** BLOQUEADA — envolve `.env.example`; provider pago sob demanda.
 
 **Objetivo:** Flag `SERPRO_ENABLED`, tipos e stub de serviço; endpoint documentado mas retorna 501 se desligado.
 
@@ -470,7 +486,7 @@ curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:3001/api/investigation/
 
 ### SR-002 — Enriquecimento Serpro sob demanda (integração real)
 
-**Status:** PENDENTE | **BLOQUEADA** até credenciais + aprovação explícita
+**Status:** BLOQUEADA — credenciais Serpro + aprovação explícita.
 
 **Objetivo:** Botão "Validar via Serpro" enriquece relação com classificação VALIDADO quando fonte responder.
 
@@ -497,7 +513,7 @@ curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:3001/api/investigation/
 
 ### CVM-001 — Spike: mapear datasets CVM úteis ao produto
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Doc `docs/cvm-sources.md` listando URLs, campos e hipóteses de vínculo (candidato, não conclusão).
 
@@ -520,7 +536,7 @@ curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:3001/api/investigation/
 
 ### CVM-002 — Adapter read-only CVM (1 dataset)
 
-**Status:** PENDENTE
+**Status:** BLOQUEADA — provider externo; implementar após CVM-001 aprovado.
 
 **Objetivo:** Serviço backend consulta API/arquivo CVM em tempo real ou cache Supabase; achado tipo `cvm_filings` opcional no relatório.
 
@@ -548,7 +564,7 @@ curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:3001/api/investigation/
 
 ### DJ-001 — Spike: API DataJud CNJ — escopo MVP
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Doc `docs/datajud-sources.md` com endpoint, auth e campos para vínculo empresa/processo (hipótese).
 
@@ -569,7 +585,7 @@ curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:3001/api/investigation/
 
 ### DJ-002 — Consulta DataJud por CNPJ (read-only)
 
-**Status:** PENDENTE
+**Status:** BLOQUEADA — API Key CNJ externa; ver `docs/datajud-sources.md`.
 
 **Objetivo:** Seção opcional no relatório: processos candidatos ligados ao CNPJ investigado.
 
@@ -678,7 +694,7 @@ curl -s -X POST http://127.0.0.1:3001/api/cases -H 'Content-Type: application/js
 
 ### RB-001 — Spike: modelo de papéis (viewer, analyst, admin)
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Doc `docs/rbac-model.md` alinhado a Supabase Auth; sem código.
 
@@ -791,6 +807,18 @@ cd backend && npm run watch:diff -- --cnpj=62909728
 **Validações:** frontend build
 
 **Quando parar:** Depende de MO-002.
+
+---
+
+## Tarefas bloqueadas (autopilot pula)
+
+| ID | Motivo |
+|----|--------|
+| PDF-002 | Decisão produto / dependência pesada (Puppeteer ou Gotenberg) |
+| SR-001 | `.env` + provider pago |
+| SR-002 | Credenciais Serpro |
+| CVM-002 | Provider externo CVM |
+| DJ-002 | API Key DataJud CNJ |
 
 ---
 

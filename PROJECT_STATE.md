@@ -7,11 +7,25 @@ Criado em 2026-05-22:
 - `AGENT_AUTOPILOT.md` — loop de trabalho etapa a etapa, permissões operacionais e limites
 - `AGENT_BACKLOG.md` — backlog priorizado com tarefas pequenas, critérios de aceite e validações
 
-Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **ER-003**.
+Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **WS-001** (ou **PDF-002a** após decisão).
 
 ---
 
 ## Histórico recente
+
+### 2026-05-22 — Autopilot batch (ER-003 → GR-003)
+
+- **ER-003:** `buildEvidenceStrength` penaliza força global quando ≥3 homônimos LOW
+- **ER-004/005:** dossiê com alerta homônimos; cap nomes ultra-frequentes (`commonPartnerNames.ts`)
+- **DO-001/002:** dossiê HTML agrupado por tipo; limitações estáticas + dinâmicas
+- **DO-003:** preview de limitações na UI antes do dossiê
+- **MU-001:** join município já existia — validado (`municipioNome: SERRA`)
+- **MU-002, BE-001, BE-002:** busca por município, CEP e endereço normalizado
+- **GR-002/003:** `?depth=2` na API + seletor na UI (29 vs 22 relações GREAT WALL)
+- **PDF-001, CVM-001, DJ-001, RB-001:** spikes em `docs/`
+- Validações: backend + frontend typecheck/build OK; curls 62909728, 14919958, search SERRA
+
+**Bloqueadas (autopilot):** PDF-002, SR-001, SR-002, CVM-002, DJ-002 — ver `AGENT_BACKLOG.md`
 
 ### 2026-05-22 — Modo autopilot
 
@@ -246,12 +260,11 @@ Validação recente:
 
 ## Lacunas Críticas
 
-- Penalizar força global quando há muitos homônimos (ER-003)
-- Dossiê HTML v2 com evidências agrupadas por tipo
-- Normalização de municípios e endereços (busca)
-- Resolução de entidades: nomes ultra-frequentes (ER-005)
-- Grafo: expansão por profundidade
-- Exportação PDF do dossiê
+- Penalizar força global quando há homônimos (ER-003) — **concluído**
+- Dossiê HTML v2 com evidências agrupadas — **concluído (DO-001/002)**
+- Grafo: expansão por profundidade — **concluído (GR-002/003)**
+- Exportação PDF do dossiê — **bloqueado (PDF-002)**
+- Workspace de casos — **pendente (WS-001)**
 - Força das evidências por grupo econômico candidato
 - Camada Serpro opcional sob demanda
 - CVM e DataJud como fontes abertas complementares
