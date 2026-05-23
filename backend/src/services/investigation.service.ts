@@ -204,9 +204,12 @@ export async function buildInvestigationReport(cnpjBasico: string, options: { de
   };
 }
 
-export async function buildInvestigationDossierHtml(cnpjBasico: string): Promise<string> {
+export async function buildInvestigationDossierHtml(
+  cnpjBasico: string,
+  options: { autoPrint?: boolean } = {},
+): Promise<string> {
   const report = await buildInvestigationReport(cnpjBasico);
-  return renderDossierHtml(report);
+  return renderDossierHtml(report, options);
 }
 
 async function findEmpresa(cnpjBasico: string): Promise<Empresa> {
@@ -1156,10 +1159,16 @@ function stripInternalEstablishment(estabelecimento: Estabelecimento): Estabelec
 
 type InvestigationReportData = Awaited<ReturnType<typeof buildInvestigationReport>>;
 
-function renderDossierHtml(report: InvestigationReportData): string {
+function renderDossierHtml(
+  report: InvestigationReportData,
+  options: { autoPrint?: boolean } = {},
+): string {
   const generatedAt = new Date().toISOString();
   const { target, summary, evidenceStrength, findings, relations } = report;
   const companyName = target.company.razaoSocial || target.company.cnpjBasico;
+  const autoPrintScript = options.autoPrint
+    ? `<script>window.addEventListener("load", () => { setTimeout(() => window.print(), 400); });</script>`
+    : "";
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -1170,6 +1179,10 @@ function renderDossierHtml(report: InvestigationReportData): string {
     body { font-family: Arial, sans-serif; margin: 32px; color: #172033; line-height: 1.5; }
     h1, h2, h3 { color: #0f172a; }
     .muted { color: #64748b; }
+    .toolbar { margin-bottom: 24px; padding: 16px; border: 1px solid #cbd5e1; border-radius: 12px; background: #f8fafc; }
+    .toolbar button { font: inherit; font-weight: 700; cursor: pointer; border: 1px solid #0e7490; background: #ecfeff; color: #0f172a; border-radius: 8px; padding: 10px 16px; }
+    .toolbar button:hover { background: #cffafe; }
+    .toolbar p { margin: 10px 0 0; font-size: 13px; }
     .card { border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin: 16px 0; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
     .metric { background: #f8fafc; border-radius: 10px; padding: 12px; }
@@ -1181,9 +1194,22 @@ function renderDossierHtml(report: InvestigationReportData): string {
     th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
     th { background: #f1f5f9; }
     code { background: #f1f5f9; padding: 2px 4px; border-radius: 4px; }
+    @media print {
+      body { margin: 0; font-size: 11pt; }
+      .no-print { display: none !important; }
+      .card { break-inside: avoid; page-break-inside: avoid; }
+      table { font-size: 10pt; }
+      a { color: inherit; text-decoration: none; }
+    }
+    @page { margin: 1.5cm; }
   </style>
 </head>
 <body>
+  <div class="toolbar no-print">
+    <button type="button" onclick="window.print()">Imprimir ou salvar como PDF</button>
+    <p class="muted">No diálogo de impressão do navegador, escolha <strong>Salvar como PDF</strong>. O conteúdo equivale ao dossiê HTML, incluindo limitações da base.</p>
+  </div>
+
   <h1>Dossiê de Investigação Empresarial</h1>
   <p class="muted">Gerado em ${escapeHtml(generatedAt)}</p>
 
@@ -1252,6 +1278,7 @@ function renderDossierHtml(report: InvestigationReportData): string {
       ),
     ])}
   </section>
+  ${autoPrintScript}
 </body>
 </html>`;
 }

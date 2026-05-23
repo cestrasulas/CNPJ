@@ -147,7 +147,8 @@ Frontend:
 - `src/App.tsx` ainda concentra o MVP.
 - `src/services/api.ts` é o cliente HTTP central.
 - `src/services/receita.ts` encapsula busca Receita e estabelecimentos.
-- `src/services/investigation.ts` encapsula relatório, disponibilidade, achados e score.
+- `src/services/investigation.ts` encapsula relatório, disponibilidade, achados e força das evidências.
+- `src/services/cases.ts`, `src/services/watch.ts` — workspace e monitoramento.
 - Consulta CNPJ antiga está preservada via backend.
 
 Backend:
@@ -179,39 +180,76 @@ Módulos obrigatórios:
 - Monitoramento: acompanhar alterações e novos vínculos.
 - Workspace de casos: organizar investigações, histórico, notas e decisões.
 
-## Estado Atual
+## Linhas de Trabalho (séries)
 
-Implementado:
+O projeto evoluiu em **três linhas** que não compartilham um único arquivo de etapas:
 
-- Frontend React/Vite.
-- Backend Fastify/TypeScript.
-- Supabase cache.
-- PostgreSQL local Receita.
-- Importadores Receita.
-- Busca Receita por razão social.
-- Lista de investigáveis.
-- Investigação por CNPJ básico.
-- Relações por sócio, telefone, e-mail, endereço e matriz/filiais.
-- Relatório com Resumo Executivo.
-- Motor de Achados inicial.
-- `investigationScore` atual ainda existe, mas deve evoluir para "força das evidências".
-- Cards por severidade.
-- Evidências iniciais por achado e por vínculo.
-- Grafo visual funcional.
-- Explorar relações.
+| Série | Escopo | Status |
+|-------|--------|--------|
+| **Etapas 1–3** | Frontend incremental: busca local, dados adicionais, comparação | **Encerrada** (sem ETAPA 4 no repo) |
+| **Motor + Infra** | Backend, Receita Docker, investigação, grafo, dossiê, busca unificada | **MVP entregue** (base parcial) |
+| **Autopilot** | Backlog `AGENT_BACKLOG.md` (ER, DO, GR, WS, RB, MO, PDF-002a) | **Fila desbloqueada concluída**; 5 tarefas bloqueadas |
 
-Rotas principais:
+Registro detalhado de séries e decisões: `PROJECT_STATE.md` (seção *Linhas de trabalho*).
 
-- `GET /health`
+## Estado Atual (2026-05-23)
+
+### Produto implementado
+
+**Consulta CNPJ (legado preservado)**
+
+- Providers no backend + cache Supabase.
+- Histórico, favoritos, export TXT, JSON, links externos, inteligência local sobre consulta.
+
+**Motor de investigação (Receita local)**
+
+- Relatório por `cnpjBasico`: vínculos, achados, força das evidências, grafo (`depth=1|2`).
+- Classificação por relação: DECLARADO / INFERIDO; `entityConfidence` em `same_partner`.
+- Dossiê HTML agrupado por tipo + limitações; exportação PDF via navegador (`?print=1` e botão na UI).
+- Busca unificada: CNPJ, razão social, sócio, endereço, telefone, e-mail, município, CEP.
+
+**Workspace e monitoramento**
+
+- Casos: CRUD PostgreSQL + UI; salvar investigação como caso.
+- Watch: empresas observadas + job `watch:diff` (sócios/telefones/e-mails) + UI de eventos.
+- Auth opcional: `AUTH_DISABLED=true` (default); JWT Supabase em `/api/cases` e `/api/watch`.
+
+### UI principal (`src/App.tsx`)
+
+- Busca investigativa unificada.
+- Casos de investigação.
+- Empresas observadas (monitoramento).
+- Busca Receita + amostras + estabelecimentos + investigar vínculos.
+- Consulta CNPJ completa (seção legada).
+- Comparação empresa × empresa, dados adicionais, score local histórico/favoritos.
+
+### Rotas API
+
+**Públicas (sem auth)**
+
+- `GET /health` — inclui `authDisabled`
 - `GET /api/companies/:cnpj`
 - `GET /api/companies/:cnpj/relations`
-- `GET /api/receita/search?q=termo&limit=20`
+- `GET /api/search?q=&limit=`
+- `GET /api/receita/search?q=&limit=`
 - `GET /api/receita/investigaveis`
 - `GET /api/receita/companies/:cnpjBasico`
 - `GET /api/receita/companies/:cnpjBasico/establishments`
-- `GET /api/receita/debug/establishments-sample?limit=20`
-- `GET /api/investigation/company/:cnpjBasico`
+- `GET /api/receita/debug/establishments-sample?limit=`
+- `GET /api/investigation/company/:cnpjBasico?depth=1|2`
 - `GET /api/investigation/company/:cnpjBasico/availability`
+- `GET /api/investigation/company/:cnpjBasico/dossier.html?print=1`
+
+**Protegidas** (`requireAuth` quando `AUTH_DISABLED=false`)
+
+- `POST/GET /api/cases`, `GET /api/cases/:id`, `POST /api/cases/:id/entities`
+- `POST/GET /api/watch`, `GET/PATCH/DELETE /api/watch/:id`, `GET /api/watch/:id/events`
+
+### Migrations PostgreSQL local (além de Receita)
+
+- `npm run db:migrate:cases` → `investigation_case`, `investigation_case_entities`
+- `npm run db:migrate:watch` → `investigation_watch`
+- `npm run db:migrate:watch-diff` → `investigation_watch_snapshot`, `investigation_watch_event`
 
 ## Dados Locais
 
@@ -237,29 +275,38 @@ CNPJs úteis para demo:
 - `59698351` — M.S CASA DE CARNES LTDA.
 - `58638478` — IMPORLED VARIEDADE EM IMPORTADOS LTDA.
 
-## Lacunas Críticas
+## Lacunas Críticas (atualizado)
 
-- Classificação DECLARADO / INFERIDO / VALIDADO / COMPROVADO em toda evidência.
-- Dossiê HTML com seção explícita "Limitações da base".
-- Busca por sócio, endereço, telefone e e-mail.
-- Normalização de municípios.
-- Normalização robusta de endereços.
-- Resolução robusta de entidades.
-- Força das evidências por grupo econômico candidato.
-- Camada Serpro opcional sob demanda.
-- CVM e DataJud como fontes abertas complementares.
-- Monitoramento.
-- Workspace de casos.
+**Produto / motor**
 
-## Prioridade Imediata
+- Força das evidências por **grupo econômico candidato** (agregação explícita).
+- Classificação **VALIDADO / COMPROVADO** além de DECLARADO/INFERIDO (depende Serpro/documentos).
+- Integração **Serpro** sob demanda (bloqueada no backlog: SR-001/002).
+- Integração **CVM / DataJud** (spikes em `docs/`; código bloqueado: CVM-002, DJ-002).
+- PDF server-side `dossier.pdf` (bloqueado: PDF-002; alternativa leve: PDF-002a navegador).
 
-1. Refatorar score para "força das evidências".
-2. Adicionar classificação DECLARADO / INFERIDO / VALIDADO / COMPROVADO.
-3. Melhorar dossiê HTML com seção "Limitações da base".
-4. Grafo navegável.
-5. Busca unificada por CNPJ, razão social, sócio, endereço, telefone e e-mail.
-6. Camada Serpro opcional sob demanda.
-7. CVM e DataJud como fontes abertas complementares.
+**Dados**
+
+- Cobertura **STRONG** baixa: partições `*0.zip` de empresas/estabelecimentos/sócios com pouca interseção.
+- Importação adicional só com justificativa de produto (não expandir base por volume).
+
+**Engenharia**
+
+- `src/App.tsx` monolítico (~3000 linhas) — dívida de manutenção.
+- RBAC completo por papéis (spike `docs/rbac-model.md`; só middleware + flag hoje).
+- Monitoramento sem scheduler/e-mail (job manual `npm run watch:diff`).
+- Auth no frontend ainda não envia JWT nas rotas protegidas (ok enquanto `AUTH_DISABLED=true`).
+
+## Prioridade Imediata (próxima decisão de produto)
+
+1. **Alinhar git** — commitar PDF-002a + docs (working tree pendente) ou reverter.
+2. **Validar demo ponta a ponta** — GREAT WALL `62909728` com backend + frontend + Docker.
+3. **Escolher próxima série:**
+   - **Dados:** alinhar amostra Receita (mesma partição ou CNPJs demo) **ou**
+   - **Produto:** grupo econômico candidato + força agregada **ou**
+   - **Integração:** Serpro / CVM / DataJud (desbloquear backlog) **ou**
+   - **Engenharia:** fatiar `App.tsx` sem mudar comportamento.
+4. Push dos 12 commits locais para `origin/main` (quando desejado).
 
 ## Restrições
 
@@ -308,13 +355,25 @@ npm run db:up
 npm run db:migrate:receita
 ```
 
+Migrations app (casos + watch):
+
+```bash
+cd backend
+npm run db:migrate:cases
+npm run db:migrate:watch
+npm run db:migrate:watch-diff
+npm run watch:diff -- --cnpj=62909728
+```
+
 Testes API:
 
 ```bash
 curl http://localhost:3001/health
+curl "http://localhost:3001/api/search?q=great%20wall&limit=5"
 curl "http://localhost:3001/api/receita/search?q=great%20wall&limit=5"
 curl "http://localhost:3001/api/receita/investigaveis"
-curl "http://localhost:3001/api/investigation/company/62909728"
+curl "http://localhost:3001/api/investigation/company/62909728?depth=2"
+curl "http://localhost:3001/api/investigation/company/62909728/dossier.html"
 ```
 
 ## Instruções Para Agentes

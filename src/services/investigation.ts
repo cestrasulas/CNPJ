@@ -121,6 +121,7 @@ export async function obterDisponibilidadeInvestigacao(cnpjBasico: string): Prom
   return apiGet<InvestigationAvailability>(`/api/investigation/company/${cnpjBasico}/availability`);
 }
 
-export function obterUrlDossieInvestigacao(cnpjBasico: string): string {
-  return apiUrl(`/api/investigation/company/${cnpjBasico}/dossier.html`);
+export function obterUrlDossieInvestigacao(cnpjBasico: string, options?: { print?: boolean }): string {
+  const base = apiUrl(`/api/investigation/company/${cnpjBasico}/dossier.html`);
+  return options?.print ? `${base}?print=1` : base;
 }

@@ -6,6 +6,8 @@ Backlog priorizado para execução **uma tarefa por vez** no modo autopilot (`AG
 
 Agentes: pegar sempre a **primeira tarefa `PENDENTE`** da lista (topo = maior prioridade).
 
+**Estado em 2026-05-23:** nenhuma tarefa `PENDENTE` desbloqueada. PDF-002a implementada no working tree (ver `PROJECT_STATE.md` — sincronizar git antes de novo autopilot). Próximo trabalho exige nova tarefa no backlog ou desbloqueio explícito (PDF-002, SR-*, CVM-002, DJ-002).
+
 ---
 
 ## Concluídas recentemente (referência)
@@ -40,6 +42,7 @@ Agentes: pegar sempre a **primeira tarefa `PENDENTE`** da lista (topo = maior pr
 | MO-001 | Modelo investigation_watch + API CRUD | CONCLUÍDA |
 | MO-002 | Job diff sócios/contatos | CONCLUÍDA |
 | MO-003 | UI empresas monitoradas | CONCLUÍDA |
+| PDF-002a | Imprimir / Salvar PDF via navegador (sem Puppeteer) | CONCLUÍDA |
 
 ---
 
@@ -425,6 +428,18 @@ curl -s "http://127.0.0.1:3001/api/investigation/company/62909728?depth=2" | pyt
 **Comando de teste:** N/A
 
 **Quando parar:** Após doc criado — marcar CONCLUÍDA.
+
+---
+
+### PDF-002a — Imprimir / Salvar PDF (navegador + CSS print)
+
+**Status:** CONCLUÍDA
+
+**Objetivo:** Exportação PDF sem dependência backend — toolbar no dossiê HTML + botão na UI com `?print=1`.
+
+**Entregue:** `@media print` no dossiê; `GET .../dossier.html?print=1` abre diálogo de impressão; botão **Imprimir / Salvar PDF** no relatório.
+
+**Validações:** backend + frontend typecheck/build; curl dossiê contém `window.print`.
 
 ---
 

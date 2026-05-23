@@ -66,7 +66,10 @@ export async function investigationRoutes(app: FastifyInstance) {
     }
 
     try {
-      const html = await buildInvestigationDossierHtml(cnpjBasico);
+      const query = request.query as { print?: string };
+      const html = await buildInvestigationDossierHtml(cnpjBasico, {
+        autoPrint: query.print === "1",
+      });
       return reply.type("text/html; charset=utf-8").send(html);
     } catch (error) {
       request.log.error(error);

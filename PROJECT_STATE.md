@@ -1,17 +1,58 @@
-# Estado Atual do Projeto CNPJ — 2026-05-22
+# Estado Atual do Projeto CNPJ — 2026-05-23
+
+Última avaliação técnica: **2026-05-23** (typecheck/build OK; Postgres Docker OK; backend não estava rodando no momento do smoke test).
+
+## Documentos de registro
+
+| Arquivo | Papel | Situação |
+|---------|-------|----------|
+| `CLAUDE.md` | Regras de produto e stack | Atual |
+| `PROJECT_HANDOFF.md` | Handoff técnico completo | **Atualizado nesta data** |
+| `PROJECT_STATE.md` | Estado operacional + histórico | **Atualizado nesta data** |
+| `AGENT_AUTOPILOT.md` | Loop de agentes | Atual |
+| `AGENT_BACKLOG.md` | Fila ID (autopilot) | Atual; fila desbloqueada vazia |
+| `docs/*.md` | Spikes (PDF, CVM, DataJud, RBAC) | Referência |
+
+Não existe `ETAPAS.md` — a série Etapas 1–3 vive só no histórico de conversas.
+
+## Linhas de trabalho (séries)
+
+| Série | Até onde chegou | Próximo passo natural |
+|-------|-----------------|------------------------|
+| **Etapas 1–3** | Busca local, dados adicionais, comparação | Encerrada; sem ETAPA 4 formal |
+| **Motor + Infra** | Investigação, grafo, dossiê, busca `/api/search` | Grupo econômico candidato ou dados |
+| **Autopilot** | 30 tarefas desbloqueadas (incl. MO-003, PDF-002a em código) | 5 bloqueadas ou nova tarefa no backlog |
+
+## Git e working tree
+
+| Item | Valor |
+|------|--------|
+| Branch | `main` |
+| Ahead of `origin/main` | **12 commits** (autopilot MO/WS/RB/ER…) |
+| Último commit | `fb0aa18` — MO-003 UI monitoramento |
+| **Não commitado** | PDF-002a (print/PDF navegador) + atualizações de docs/código relacionadas |
+
+Ação recomendada antes de novo desenvolvimento: **commit ou revert** do bloco PDF-002a para alinhar git ↔ docs.
 
 ## Modo Autopilot (agentes)
 
-Criado em 2026-05-22:
+- `AGENT_AUTOPILOT.md` — loop etapa a etapa
+- `AGENT_BACKLOG.md` — backlog priorizado
 
-- `AGENT_AUTOPILOT.md` — loop de trabalho etapa a etapa, permissões operacionais e limites
-- `AGENT_BACKLOG.md` — backlog priorizado com tarefas pequenas, critérios de aceite e validações
+**Próxima tarefa `PENDENTE` no backlog:** nenhuma desbloqueada.
 
-Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **nenhuma desbloqueada** (ver tarefas bloqueadas).
+**Bloqueadas:** PDF-002, SR-001, SR-002, CVM-002, DJ-002.
 
 ---
 
 ## Histórico recente
+
+### 2026-05-23 — PDF-002a Exportação PDF via navegador
+
+- Dossiê HTML com toolbar de impressão e `@media print`
+- `GET .../dossier.html?print=1` dispara diálogo de impressão
+- Botão **Imprimir / Salvar PDF** na UI de investigação
+- Validações: backend + frontend typecheck/build OK
 
 ### 2026-05-23 — MO-003 UI monitoramento
 
@@ -218,16 +259,15 @@ Frontend:
 - `src/App.tsx` concentra o MVP visual.
 - `src/services/api.ts` centraliza HTTP.
 - `src/services/receita.ts` acessa busca Receita, investigáveis e estabelecimentos.
-- `src/services/investigation.ts` acessa relatório, disponibilidade, achados e score.
+- `src/services/investigation.ts` — relatório, disponibilidade, dossiê, profundidade do grafo.
+- `src/services/cases.ts`, `src/services/watch.ts` — casos e monitoramento.
 
 Backend:
 
 - Fastify + TypeScript.
-- `backend/src/server.ts` inicializa API.
-- `backend/src/routes/companies.routes.ts` preserva consulta CNPJ e relações antigas.
-- `backend/src/routes/receita.routes.ts` expõe Receita local.
-- `backend/src/routes/investigation.routes.ts` expõe relatório de investigação.
-- `backend/src/services/investigation.service.ts` concentra motor inicial de vínculos, achados, score e grafo.
+- `backend/src/server.ts` — registra companies, cases, watch, receita, investigation, search.
+- `backend/src/services/investigation.service.ts` — vínculos, achados, força das evidências, grafo, dossiê HTML.
+- `backend/src/middleware/auth.ts` — JWT Supabase quando `AUTH_DISABLED=false`.
 - `backend/src/repositories/receita.repository.ts` consulta PostgreSQL local.
 
 Dados:
@@ -268,7 +308,8 @@ Produto/MVP:
 - Motor de Achados inicial.
 - Cards de achados por severidade.
 - Evidências por achado e vínculo.
-- Dossiê HTML básico com limitações (evoluir para v2 — DO-001).
+- Dossiê HTML v2 (seções por tipo, limitações, entityConfidence) + impressão/PDF via navegador (PDF-002a).
+- Casos de investigação + empresas observadas + job `watch:diff`.
 
 Backend:
 
@@ -294,6 +335,9 @@ Dados locais conhecidos:
 | `receita_estabelecimentos` | 100.000 |
 | `receita_socios` | 1.187.000 |
 | `receita_municipios` | 5.572 |
+| `investigation_watch` | 1 (demo) |
+
+Contagem verificada em 2026-05-23 via `docker exec cnpj-receita-postgres psql`.
 
 CNPJs fortes para demo:
 
@@ -304,34 +348,37 @@ CNPJs fortes para demo:
 
 Validação recente:
 
-- `62909728` retornou `summary`, `relations`, `graph`, `findings` e `investigationScore`.
-- GREAT WALL retornou 22 relações, 2 achados e indicador técnico MEDIUM/55. A linguagem de produto deve tratar isso como força das evidências, não risco.
+- `62909728` retorna `summary`, `relations`, `graph`, `findings`, `evidenceStrength` (validação histórica com backend ativo).
+- GREAT WALL: ~22 relações (depth=1), expansão com `depth=2`; tratar níveis como **força das evidências**, não risco.
 
-## Lacunas Críticas
+## Lacunas Críticas (abertas)
 
-- Penalizar força global quando há homônimos (ER-003) — **concluído**
-- Dossiê HTML v2 com evidências agrupadas — **concluído (DO-001/002)**
-- Grafo: expansão por profundidade — **concluído (GR-002/003)**
-- Exportação PDF do dossiê — **bloqueado (PDF-002)**
-- Workspace de casos — **WS-001 a WS-003 concluídos**
-- RBAC — **RB-002 auth middleware concluído**
-- Monitoramento — **MO-001 a MO-003 concluídos**
-- Força das evidências por grupo econômico candidato
-- Camada Serpro opcional sob demanda
-- CVM e DataJud como fontes abertas complementares
-- Monitoramento
-- Workspace de casos
-- RBAC
+- Força das evidências por **grupo econômico candidato**
+- **VALIDADO / COMPROVADO** em escala (Serpro / documentos)
+- **Serpro**, **CVM**, **DataJud** (integração — ver backlog bloqueado)
+- **PDF server-side** (`dossier.pdf`) — PDF-002 bloqueado; PDF-002a navegador implementado (pendente commit)
+- **Cobertura Receita STRONG** — amostra `*0.zip` com baixa interseção entre tabelas
+- **`App.tsx` monolítico** — refatoração incremental futura
+- **RBAC por papéis** — só spike + middleware hoje
+- **Scheduler** de monitoramento (job manual `watch:diff`)
 
-## Prioridade Imediata
+## Concluído (não reimplementar)
 
-1. Refatorar score para "força das evidências".
-2. Adicionar classificação DECLARADO / INFERIDO / VALIDADO / COMPROVADO.
-3. Melhorar dossiê HTML com seção "Limitações da base".
-4. Grafo navegável.
-5. Busca unificada por CNPJ, razão social, sócio, endereço, telefone e e-mail.
-6. Camada Serpro opcional sob demanda.
-7. CVM e DataJud como fontes abertas complementares.
+- Força das evidências + DECLARADO/INFERIDO (EV-001/002)
+- Entity resolution + homônimos (ER-001…005)
+- Dossiê v2 + limitações (DO-001…003)
+- Grafo navegável + depth=2 (GR-001…003)
+- Busca unificada (BS-001) + município/CEP/endereço (MU/BE)
+- Workspace casos (WS-001…003)
+- Auth middleware (RB-002)
+- Monitoramento watch + diff + UI (MO-001…003)
+
+## Prioridade Imediata (pós-atualização de docs)
+
+1. Commit ou revert PDF-002a + docs.
+2. Smoke test demo: `npm run dev` (front) + `cd backend && npm run dev` + GREAT WALL `62909728`.
+3. Decidir próxima série (dados vs produto vs integração vs refactor UI).
+4. Opcional: `git push` dos 12 commits locais.
 
 ## Restrições Atuais
 

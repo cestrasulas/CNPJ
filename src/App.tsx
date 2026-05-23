@@ -1515,6 +1515,14 @@ function RelatorioInvestigacao({
     window.open(obterUrlDossieInvestigacao(target.company.cnpjBasico), "_blank", "noopener,noreferrer");
   };
 
+  const abrirDossieParaPdf = () => {
+    window.open(
+      obterUrlDossieInvestigacao(target.company.cnpjBasico, { print: true }),
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
   return (
     <div className="mt-5 rounded-2xl border border-cyan-500/20 bg-slate-900 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1541,6 +1549,12 @@ function RelatorioInvestigacao({
             className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/20"
           >
             Gerar dossiê HTML
+          </button>
+          <button
+            onClick={abrirDossieParaPdf}
+            className="rounded-xl border border-slate-600 bg-slate-800/80 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700"
+          >
+            Imprimir / Salvar PDF
           </button>
           {onSalvarComoCaso && (
             <button
