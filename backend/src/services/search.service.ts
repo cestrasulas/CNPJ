@@ -4,15 +4,19 @@ import {
   searchReceitaByCnpjBasico,
   searchReceitaByCnpjCompleto,
   searchReceitaCompaniesByAddress,
+  searchReceitaCompaniesByCep,
   searchReceitaCompaniesByEmail,
+  searchReceitaCompaniesByMunicipio,
   searchReceitaCompaniesByPartner,
   searchReceitaCompaniesByPhone,
   searchReceitaEmails,
   searchReceitaEmpresas,
+  searchReceitaMunicipios,
   searchReceitaPartners,
   searchReceitaPhones,
   type ReceitaEmpresaRow,
 } from "../repositories/receita.repository.js";
+import { looksLikeCep, normalizeAddressQuery, normalizeCep } from "../lib/addressNormalize.js";
 import { onlyDigits } from "../utils/cnpj.js";
 
 export type SearchResultType = "company" | "partner" | "address" | "phone" | "email";
@@ -75,7 +79,8 @@ export async function unifiedSearch(q: string, type: SearchQueryType, limit: num
 
 function detectAutoType(q: string): SearchQueryType {
   const digits = onlyDigits(q);
-  if (digits.length === 8 || digits.length === 14) return "cnpj";
+  if (digits.length === 14) return "cnpj";
+  if (digits.length === 8) return looksLikeCep(q) ? "address" : "cnpj";
   if (q.includes("@")) return "email";
   if (looksLikePhone(q)) return "phone";
   return "company";
@@ -127,6 +132,15 @@ async function searchCompanies(q: string, limit: number): Promise<SearchResultIt
     "Estrutura societária conhecida na base local.",
   );
 
+  const municipios = await searchReceitaMunicipios(q, 3);
+  if (municipios.length > 0) {
+    addCompanyRows(
+      await searchReceitaCompaniesByMunicipio(q, limit),
+      `Empresa(s) no município ${municipios[0].nome}.`,
+      "Evidência declarada por município cadastral.",
+    );
+  }
+
   const digits = onlyDigits(q);
   if (looksLikePhone(q)) {
     addCompanyRows(
@@ -145,7 +159,8 @@ async function searchCompanies(q: string, limit: number): Promise<SearchResultIt
   }
 
   if (!looksLikePhone(q) && !q.includes("@") && q.trim().length >= 8) {
-    const byAddress = await searchReceitaCompaniesByAddress(q, limit);
+    const normalizedAddress = normalizeAddressQuery(q);
+    const byAddress = await searchReceitaCompaniesByAddress(normalizedAddress, limit);
     if (byAddress.length > 0) {
       addCompanyRows(
         byAddress,
@@ -192,7 +207,18 @@ async function searchEmails(q: string, limit: number): Promise<SearchResultItem[
 }
 
 async function searchAddresses(q: string, limit: number): Promise<SearchResultItem[]> {
-  const rows = await searchReceitaAddresses(q, limit);
+  if (looksLikeCep(q)) {
+    const cep = normalizeCep(q);
+    const companies = await searchReceitaCompaniesByCep(cep, limit);
+    if (companies.length > 0) {
+      return companies.map((row) =>
+        mapCompanyRow(row, undefined, "Evidência inferida por CEP cadastral.", `CEP ${cep}`),
+      );
+    }
+  }
+
+  const normalized = normalizeAddressQuery(q);
+  const rows = await searchReceitaAddresses(normalized, limit);
   return rows.map((row) => ({
     id: `address:${normalizeKey(row.valor)}`,
     type: "address",

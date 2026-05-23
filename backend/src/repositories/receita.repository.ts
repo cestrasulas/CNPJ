@@ -289,6 +289,81 @@ export async function searchReceitaAddresses(q: string, limit: number): Promise<
   return rows;
 }
 
+export async function searchReceitaCompaniesByCep(cep: string, limit: number): Promise<ReceitaEmpresaRow[]> {
+  const digits = cep.replace(/\D/g, "");
+  if (digits.length !== 8) return [];
+
+  const { rows } = await receitaPool.query<ReceitaEmpresaRow>(
+    `
+      select distinct
+        e.cnpj_basico,
+        e.razao_social,
+        e.natureza_juridica,
+        e.qualificacao_responsavel,
+        e.capital_social::text,
+        e.porte,
+        true as tem_estabelecimento,
+        exists(select 1 from receita_socios s where s.cnpj_basico = e.cnpj_basico) as tem_socio
+      from receita_estabelecimentos est
+      join receita_empresas e on e.cnpj_basico = est.cnpj_basico
+      where regexp_replace(coalesce(est.cep, ''), '\\D', '', 'g') = $1
+      order by e.razao_social asc
+      limit $2
+    `,
+    [digits, limit],
+  );
+
+  return rows;
+}
+
+export async function searchReceitaMunicipios(q: string, limit: number): Promise<Array<{ codigo: string; nome: string }>> {
+  const termo = q.trim().toLowerCase();
+  const digits = q.replace(/\D/g, "");
+  if (!termo && !digits) return [];
+
+  const { rows } = await receitaPool.query<{ codigo: string; nome: string }>(
+    `
+      select codigo, nome
+      from receita_municipios
+      where ($1 <> '' and codigo = $1)
+         or ($2 <> '' and lower(nome) like '%' || $2 || '%')
+      order by nome asc
+      limit $3
+    `,
+    [digits.length >= 4 ? digits : "", termo, limit],
+  );
+
+  return rows;
+}
+
+export async function searchReceitaCompaniesByMunicipio(q: string, limit: number): Promise<ReceitaEmpresaRow[]> {
+  const municipios = await searchReceitaMunicipios(q, 3);
+  if (municipios.length === 0) return [];
+
+  const codigos = municipios.map((item) => item.codigo);
+  const { rows } = await receitaPool.query<ReceitaEmpresaRow>(
+    `
+      select distinct
+        e.cnpj_basico,
+        e.razao_social,
+        e.natureza_juridica,
+        e.qualificacao_responsavel,
+        e.capital_social::text,
+        e.porte,
+        true as tem_estabelecimento,
+        exists(select 1 from receita_socios s where s.cnpj_basico = e.cnpj_basico) as tem_socio
+      from receita_estabelecimentos est
+      join receita_empresas e on e.cnpj_basico = est.cnpj_basico
+      where est.municipio = any($1::text[])
+      order by e.razao_social asc
+      limit $2
+    `,
+    [codigos, limit],
+  );
+
+  return rows;
+}
+
 export async function searchReceitaCompaniesByAddress(address: string, limit: number): Promise<ReceitaEmpresaRow[]> {
   const termo = address.trim().toLowerCase();
   if (!termo) return [];
