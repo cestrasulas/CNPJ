@@ -37,6 +37,7 @@ Agentes: pegar sempre a **primeira tarefa `PENDENTE`** da lista (topo = maior pr
 | WS-002 | API CRUD mínima de casos | CONCLUÍDA |
 | WS-003 | UI salvar investigação como caso | CONCLUÍDA |
 | RB-002 | Middleware auth backend (rotas protegidas) | CONCLUÍDA |
+| MO-001 | Modelo investigation_watch + API CRUD | CONCLUÍDA |
 
 ---
 
@@ -750,9 +751,11 @@ curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/cases
 
 ### MO-001 — Modelo `investigation_watch` (empresa observada)
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Tabela + API para registrar CNPJ observado e `last_checked_at`.
+
+**Entregue:** PostgreSQL local + `POST/GET/PATCH/DELETE /api/watch`; migration `npm run db:migrate:watch`.
 
 **Arquivos prováveis:**
 - migration Supabase

@@ -7,11 +7,19 @@ Criado em 2026-05-22:
 - `AGENT_AUTOPILOT.md` — loop de trabalho etapa a etapa, permissões operacionais e limites
 - `AGENT_BACKLOG.md` — backlog priorizado com tarefas pequenas, critérios de aceite e validações
 
-Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **MO-001**.
+Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **MO-002**.
 
 ---
 
 ## Histórico recente
+
+### 2026-05-23 — MO-001 Investigation watch
+
+- Tabela `investigation_watch` (cnpj_basico, label, notes, last_checked_at)
+- Rotas: `POST/GET /api/watch`, `GET/PATCH/DELETE /api/watch/:id`
+- Protegidas com `requireAuth` (mesmo padrão de casos)
+- Migration: `npm run db:migrate:watch`
+- Validações: typecheck/build OK; curl POST/GET OK
 
 ### 2026-05-23 — RB-002 Auth middleware
 

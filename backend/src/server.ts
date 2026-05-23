@@ -6,6 +6,7 @@ import { companiesRoutes } from "./routes/companies.routes.js";
 import { investigationRoutes } from "./routes/investigation.routes.js";
 import { receitaRoutes } from "./routes/receita.routes.js";
 import { searchRoutes } from "./routes/search.routes.js";
+import { watchRoutes } from "./routes/watch.routes.js";
 
 const app = Fastify({
   logger: true,
@@ -30,6 +31,7 @@ app.get("/health", async () => ({
 
 await app.register(companiesRoutes);
 await app.register(casesRoutes);
+await app.register(watchRoutes);
 await app.register(receitaRoutes);
 await app.register(investigationRoutes);
 await app.register(searchRoutes);
