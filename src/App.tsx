@@ -1118,7 +1118,7 @@ function RelatorioInvestigacao({
   statusInvestigacao: import("./services/receita").StatusInvestigacao | null | undefined;
   onAbrirEmpresaReceita: (empresa: ReceitaEmpresa) => void;
 }) {
-  const { summary, target, findings, investigationScore, relations, graph } = relatorio;
+  const { summary, target, findings, evidenceStrength, relations, graph } = relatorio;
   const [tipoExplorado, setTipoExplorado] = useState<ExplorationRelationType>("same_partner");
   const gruposExploracao = montarGruposExploracao(target.establishments, target.partners, relations);
   const grupoAtivo = gruposExploracao.find((grupo) => grupo.key === tipoExplorado && grupo.disponivel)
@@ -1217,9 +1217,9 @@ function RelatorioInvestigacao({
         <Card titulo="Matriz/filiais" valor={String(summary.totalBranches)} />
       </div>
 
-      {summary.riskHints.length > 0 && (
+      {summary.dataLimitations.length > 0 && (
         <div className="mt-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3">
-          {summary.riskHints.map((hint) => (
+          {summary.dataLimitations.map((hint) => (
             <p key={hint} className="text-sm font-semibold text-yellow-200">
               {hint}
             </p>
@@ -1227,7 +1227,7 @@ function RelatorioInvestigacao({
         </div>
       )}
 
-      <ScoreInvestigacao score={investigationScore} />
+      <ForcaDasEvidencias evidenceStrength={evidenceStrength} />
 
       <AchadosInvestigacao findings={findings} />
 
@@ -1297,7 +1297,7 @@ function RelatorioInvestigacao({
                   <p className="font-bold text-white">
                     {relation.company.razaoSocial || relation.company.cnpjBasico}
                   </p>
-                  <p className="mt-1 text-xs text-cyan-300">Score {relation.score} · {relation.type}</p>
+                  <p className="mt-1 text-xs text-cyan-300">{relation.classification} · {relation.type}</p>
                   <p className="mt-1 text-xs text-slate-400">{relation.reason}</p>
                   <ResumoEvidenciaRelation relation={relation} />
                 </div>
@@ -1314,28 +1314,39 @@ function RelatorioInvestigacao({
   );
 }
 
-function ScoreInvestigacao({ score }: { score: InvestigationReport["investigationScore"] }) {
+function ForcaDasEvidencias({ evidenceStrength }: { evidenceStrength: InvestigationReport["evidenceStrength"] }) {
   return (
-    <div className={`mt-4 rounded-2xl border p-4 ${scoreContainerClass(score.level)}`}>
+    <div className={`mt-4 rounded-2xl border p-4 ${evidenceStrengthContainerClass(evidenceStrength.level)}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-300">Score de investigação</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-300">Força das evidências</p>
           <h4 className="mt-1 text-lg font-black text-white">
-            Atenção {score.level === "HIGH" ? "alta" : score.level === "MEDIUM" ? "média" : "baixa"}
+            {evidenceStrength.level === "HIGH" ? "ALTA" : evidenceStrength.level === "MEDIUM" ? "MÉDIA" : "BAIXA"}
           </h4>
         </div>
         <div className="rounded-xl bg-slate-950/70 px-4 py-3 text-center">
-          <p className="text-2xl font-black text-white">{score.points}</p>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">pontos</p>
+          <p className="text-2xl font-black text-white">{evidenceStrength.points}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">pontos de evidência</p>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {score.reasons.map((reason) => (
-          <span key={reason} className="rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs font-semibold text-slate-200">
-            {reason}
-          </span>
-        ))}
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="rounded-xl bg-slate-950/50 p-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">Motivos</p>
+          <ul className="mt-2 space-y-1">
+            {evidenceStrength.reasons.map((reason) => (
+              <li key={reason} className="text-xs leading-5 text-slate-200">✓ {reason}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="rounded-xl bg-slate-950/50 p-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300">Limitações</p>
+          <ul className="mt-2 space-y-1">
+            {evidenceStrength.limitations.map((limitation) => (
+              <li key={limitation} className="text-xs leading-5 text-slate-200">⚠ {limitation}</li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   );
@@ -1387,7 +1398,7 @@ function ResumoEvidenciaRelation({ relation }: { relation: InvestigationRelation
     <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-300">
-          Evidência
+          {relation.classification}
         </span>
         <span className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${confidenceBadgeClass(evidence.confidence)}`}>
           Confiança {evidence.confidence}
@@ -1404,7 +1415,7 @@ function ResumoEvidenciaRelation({ relation }: { relation: InvestigationRelation
   );
 }
 
-function scoreContainerClass(level: InvestigationReport["investigationScore"]["level"]): string {
+function evidenceStrengthContainerClass(level: InvestigationReport["evidenceStrength"]["level"]): string {
   if (level === "HIGH") return "border-red-500/30 bg-red-500/10";
   if (level === "MEDIUM") return "border-amber-500/30 bg-amber-500/10";
   return "border-cyan-500/20 bg-cyan-500/5";

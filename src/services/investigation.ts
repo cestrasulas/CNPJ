@@ -11,11 +11,14 @@ export type InvestigationRelationEvidence = {
   confidence: "LOW" | "MEDIUM" | "HIGH";
 };
 
+export type EvidenceClassification = "DECLARADO" | "INFERIDO" | "VALIDADO" | "COMPROVADO";
+
 export type InvestigationRelation = {
   type: "same_partner" | "same_address" | "same_root" | "same_phone" | "same_email";
   score: number;
   reason: string;
   company: ReceitaEmpresa;
+  classification: EvidenceClassification;
   evidence: InvestigationRelationEvidence;
 };
 
@@ -48,10 +51,11 @@ export type InvestigationFinding = {
   evidence: string[];
 };
 
-export type InvestigationScore = {
+export type EvidenceStrength = {
   level: "LOW" | "MEDIUM" | "HIGH";
   points: number;
   reasons: string[];
+  limitations: string[];
 };
 
 export type InvestigationReport = {
@@ -75,10 +79,10 @@ export type InvestigationReport = {
     totalPhoneLinks: number;
     totalEmailLinks: number;
     totalBranches: number;
-    riskHints: string[];
+    dataLimitations: string[];
   };
   findings: InvestigationFinding[];
-  investigationScore: InvestigationScore;
+  evidenceStrength: EvidenceStrength;
   relations: InvestigationRelation[];
   graph: {
     nodes: InvestigationGraphNode[];

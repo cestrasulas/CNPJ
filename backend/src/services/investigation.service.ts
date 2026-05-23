@@ -45,6 +45,7 @@ type Relation = {
   score: number;
   reason: string;
   company: Empresa;
+  classification: EvidenceClassification;
   evidence: RelationEvidence;
 };
 
@@ -59,6 +60,7 @@ type FindingType =
   | "data_gap";
 
 type FindingSeverity = "LOW" | "MEDIUM" | "HIGH";
+type EvidenceClassification = "DECLARADO" | "INFERIDO" | "VALIDADO" | "COMPROVADO";
 
 type Finding = {
   type: FindingType;
@@ -68,10 +70,11 @@ type Finding = {
   evidence: string[];
 };
 
-type InvestigationScore = {
+type EvidenceStrength = {
   level: FindingSeverity;
   points: number;
   reasons: string[];
+  limitations: string[];
 };
 
 type GraphNode = {
@@ -152,7 +155,7 @@ export async function buildInvestigationReport(cnpjBasico: string) {
   const investigationLevel: "LOW" | "MEDIUM" | "HIGH" =
     totalVinculos > 10 ? "HIGH" : totalVinculos >= 4 ? "MEDIUM" : "LOW";
   const findings = buildFindings(target, socios, estabelecimentos, relations);
-  const investigationScore = buildInvestigationScore(findings);
+  const evidenceStrength = buildEvidenceStrength(relations);
 
   return {
     target: {
@@ -161,7 +164,7 @@ export async function buildInvestigationReport(cnpjBasico: string) {
       partners: socios,
     },
     summary: {
-      investigationLevel: investigationScore.level || investigationLevel,
+      investigationLevel: evidenceStrength.level || investigationLevel,
       keyFindings: buildKeyFindings(target, socios, relations, estabelecimentos),
       totalPartners: socios.length,
       totalRelatedCompanies,
@@ -170,10 +173,10 @@ export async function buildInvestigationReport(cnpjBasico: string) {
       totalPhoneLinks,
       totalEmailLinks,
       totalBranches: estabelecimentos.length,
-      riskHints: buildRiskHints(estabelecimentos, socios, relations),
+      dataLimitations: buildDataLimitations(estabelecimentos, socios, relations),
     },
     findings,
-    investigationScore,
+    evidenceStrength,
     relations,
     graph: buildGraph(target, estabelecimentos, socios, relations),
   };
@@ -272,6 +275,7 @@ function buildBranchRelations(target: Empresa, estabelecimentos: Estabelecimento
       score: 20,
       reason: `${estabelecimentos.length} estabelecimentos compartilham o mesmo CNPJ básico.`,
       company: target,
+      classification: "DECLARADO",
       evidence: buildRelationEvidence(
         "same_root",
         target.cnpjBasico,
@@ -310,6 +314,7 @@ async function findSamePartnerRelations(cnpjBasico: string, socios: Socio[]): Pr
     score: 50,
     reason: `Sócio em comum: ${row.nome_socio || "não identificado"}.`,
     company: mapEmpresaRow(row),
+    classification: "DECLARADO",
     evidence: buildRelationEvidence(
       "same_partner",
       String(row.nome_socio || "não identificado"),
@@ -340,6 +345,7 @@ async function findSameAddressRelations(cnpjBasico: string, estabelecimentos: Es
     score: 25,
     reason: "Empresa encontrada no mesmo endereço normalizado.",
     company: mapEmpresaRow(row),
+    classification: "INFERIDO",
     evidence: buildRelationEvidence(
       "same_address",
       String(row.endereco_normalizado || "endereço não identificado"),
@@ -381,6 +387,7 @@ async function findSameContactRelations(
     score,
     reason: `Mesmo ${label}: ${row.evidence}.`,
     company: mapEmpresaRow(row),
+    classification: "INFERIDO",
     evidence: buildRelationEvidence(type, String(row.evidence || ""), `Empresas compartilham ${label} cadastral.`),
   }));
 }
@@ -469,12 +476,12 @@ function buildKeyFindings(
   return findings.slice(0, 5);
 }
 
-function buildRiskHints(estabelecimentos: Estabelecimento[], socios: Socio[], relations: Relation[]): string[] {
-  const hints: string[] = [];
-  if (socios.length === 0) hints.push("Quadro societário não disponível na base local importada.");
-  if (estabelecimentos.length === 0) hints.push("Estabelecimentos não encontrados na amostra importada.");
-  if (relations.length === 0) hints.push("Nenhum vínculo local detectado com os dados importados até agora.");
-  return hints;
+function buildDataLimitations(estabelecimentos: Estabelecimento[], socios: Socio[], relations: Relation[]): string[] {
+  const limitations: string[] = [];
+  if (socios.length === 0) limitations.push("Quadro societário não disponível na base local importada.");
+  if (estabelecimentos.length === 0) limitations.push("Estabelecimentos não encontrados na amostra importada.");
+  if (relations.length === 0) limitations.push("Nenhum vínculo local detectado com os dados importados até agora.");
+  return limitations;
 }
 
 function buildFindings(
@@ -608,23 +615,54 @@ function buildFindings(
   return findings;
 }
 
-function buildInvestigationScore(findings: Finding[]): InvestigationScore {
-  const points = findings.reduce((total, finding) => {
-    if (finding.severity === "HIGH") return total + 35;
-    if (finding.severity === "MEDIUM") return total + 20;
-    return total + 8;
-  }, 0);
-  const level: FindingSeverity = points >= 70 ? "HIGH" : points >= 30 ? "MEDIUM" : "LOW";
-  const reasons = findings
-    .filter((finding) => finding.severity === "HIGH" || finding.severity === "MEDIUM")
-    .map((finding) => finding.title)
-    .slice(0, 5);
+function buildEvidenceStrength(relations: Relation[]): EvidenceStrength {
+  const points = relations.reduce((total, relation) => total + evidenceClassificationPoints(relation.classification), 0);
+  const level: FindingSeverity = points >= 100 ? "HIGH" : points >= 40 ? "MEDIUM" : "LOW";
+  const reasons = buildEvidenceStrengthReasons(relations);
 
   return {
     level,
     points,
-    reasons: reasons.length > 0 ? reasons : ["Poucos vínculos relevantes encontrados na base local."],
+    reasons: reasons.length > 0 ? reasons : ["Poucas evidências relacionais disponíveis na base local."],
+    limitations: defaultEvidenceLimitations(),
   };
+}
+
+function evidenceClassificationPoints(classification: EvidenceClassification): number {
+  if (classification === "COMPROVADO") return 50;
+  if (classification === "VALIDADO") return 30;
+  if (classification === "DECLARADO") return 20;
+  return 10;
+}
+
+function buildEvidenceStrengthReasons(relations: Relation[]): string[] {
+  const reasons: string[] = [];
+  const declared = relations.filter((relation) => relation.classification === "DECLARADO").length;
+  const inferred = relations.filter((relation) => relation.classification === "INFERIDO").length;
+  const partner = relations.filter((relation) => relation.type === "same_partner").length;
+  const phone = relations.filter((relation) => relation.type === "same_phone").length;
+  const email = relations.filter((relation) => relation.type === "same_email").length;
+  const address = relations.filter((relation) => relation.type === "same_address").length;
+  const root = relations.filter((relation) => relation.type === "same_root").length;
+
+  if (declared > 0) reasons.push(`${declared} evidência(s) declarada(s) em fonte cadastral/oficial.`);
+  if (inferred > 0) reasons.push(`${inferred} evidência(s) inferida(s) por regra do sistema.`);
+  if (partner > 0) reasons.push(`${partner} vínculo(s) por sócio/administrador declarado.`);
+  if (phone > 0) reasons.push(`${phone} vínculo(s) por telefone cadastral compartilhado.`);
+  if (email > 0) reasons.push(`${email} vínculo(s) por e-mail cadastral compartilhado.`);
+  if (address > 0) reasons.push(`${address} vínculo(s) por endereço cadastral compartilhado.`);
+  if (root > 0) reasons.push(`${root} vínculo(s) por mesma raiz de CNPJ.`);
+
+  return reasons.slice(0, 6);
+}
+
+function defaultEvidenceLimitations(): string[] {
+  return [
+    "CPF mascarado na base pública",
+    "ausência de percentuais societários",
+    "ausência de atos societários",
+    "ausência de UBO formal",
+  ];
 }
 
 function buildDataGapEvidence(socios: Socio[], estabelecimentos: Estabelecimento[], relations: Relation[]): string[] {
@@ -651,7 +689,7 @@ function uniqueEvidence(items: Array<string | null | undefined>, limit = 5): str
 function relationEvidenceLines(relations: Relation[], limit = 3): string[] {
   return relations.slice(0, limit).map((relation) => {
     const evidence = relation.evidence;
-    return `Evidência (${evidence.field}): ${evidence.value} | Fonte: ${evidence.source} | Confiança: ${evidence.confidence}.`;
+    return `Evidência ${relation.classification} (${evidence.field}): ${evidence.value} | Fonte: ${evidence.source} | Confiança: ${evidence.confidence}.`;
   });
 }
 
@@ -718,7 +756,7 @@ type InvestigationReportData = Awaited<ReturnType<typeof buildInvestigationRepor
 
 function renderDossierHtml(report: InvestigationReportData): string {
   const generatedAt = new Date().toISOString();
-  const { target, summary, investigationScore, findings, relations } = report;
+  const { target, summary, evidenceStrength, findings, relations } = report;
   const companyName = target.company.razaoSocial || target.company.cnpjBasico;
 
   return `<!doctype html>
@@ -769,9 +807,12 @@ function renderDossierHtml(report: InvestigationReportData): string {
   </section>
 
   <section class="card">
-    <h2>Score</h2>
-    <p><span class="badge ${severityClass(investigationScore.level)}">${escapeHtml(investigationScore.level)}</span> ${investigationScore.points} pontos</p>
-    ${list(investigationScore.reasons)}
+    <h2>Força das evidências</h2>
+    <p><span class="badge ${severityClass(evidenceStrength.level)}">${escapeHtml(evidenceStrength.level)}</span> ${evidenceStrength.points} pontos de evidência</p>
+    <h3>Motivos</h3>
+    ${list(evidenceStrength.reasons)}
+    <h3>Limitações</h3>
+    ${list(evidenceStrength.limitations)}
   </section>
 
   <section class="card">
@@ -790,11 +831,11 @@ function renderDossierHtml(report: InvestigationReportData): string {
   </section>
 
   <section class="card">
-    <h2>Aviso de limitações</h2>
+    <h2>Limitações da base</h2>
     ${list([
       "A base local é parcial e pode não conter todos os estabelecimentos, sócios ou contatos disponíveis nacionalmente.",
       "CPF/CNPJ de sócios pode estar mascarado na fonte pública.",
-      "Relações indicam evidências cadastrais compartilhadas; não provam, isoladamente, grupo econômico ou irregularidade.",
+      "Relações indicam evidências cadastrais compartilhadas; não são prova isolada de grupo econômico candidato.",
       "Este relatório não substitui análise jurídica/compliance humana.",
     ])}
   </section>
@@ -827,6 +868,7 @@ function renderRelationsTable(relations: Relation[]): string {
         <th>Tipo</th>
         <th>Empresa relacionada</th>
         <th>Motivo</th>
+        <th>Classificação</th>
         <th>Evidência</th>
         <th>Fonte</th>
         <th>Confiança</th>
@@ -844,6 +886,7 @@ function renderRelationRow(relation: Relation): string {
     <td>${escapeHtml(relation.type)}</td>
     <td>${escapeHtml(relation.company.razaoSocial || relation.company.cnpjBasico)}</td>
     <td>${escapeHtml(relation.reason)}</td>
+    <td>${escapeHtml(relation.classification)}</td>
     <td><strong>${escapeHtml(evidence.field)}:</strong> ${escapeHtml(evidence.value)}<br>${escapeHtml(evidence.explanation)}</td>
     <td>${escapeHtml(evidence.source)}<br><span class="muted">${escapeHtml(evidence.sourceType)}${evidence.collectedAt ? ` - ${escapeHtml(evidence.collectedAt)}` : ""}</span></td>
     <td>${escapeHtml(evidence.confidence)}</td>
