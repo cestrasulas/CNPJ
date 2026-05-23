@@ -86,6 +86,7 @@ export default function App() {
   const [loadingAmostrasReceita, setLoadingAmostrasReceita] = useState(false);
   const [erroAmostrasReceita, setErroAmostrasReceita] = useState("");
   const [relatorioInvestigacao, setRelatorioInvestigacao] = useState<InvestigationReport | null>(null);
+  const [profundidadeInvestigacao, setProfundidadeInvestigacao] = useState<1 | 2>(1);
   const [disponibilidadeInvestigacao, setDisponibilidadeInvestigacao] =
     useState<InvestigationAvailability | null>(null);
   const [loadingInvestigacao, setLoadingInvestigacao] = useState(false);
@@ -297,7 +298,7 @@ export default function App() {
     try {
       setErroInvestigacao("");
       setLoadingInvestigacao(true);
-      const relatorio = await obterRelatorioInvestigacao(empresa.cnpjBasico);
+      const relatorio = await obterRelatorioInvestigacao(empresa.cnpjBasico, profundidadeInvestigacao);
       setRelatorioInvestigacao(relatorio);
     } catch (error) {
       setErroInvestigacao(error instanceof Error ? error.message : "Erro ao gerar relatório de investigação.");
@@ -374,7 +375,7 @@ export default function App() {
     try {
       setErroInvestigacao("");
       setLoadingInvestigacao(true);
-      const relatorio = await obterRelatorioInvestigacao(empresaReceitaSelecionada.cnpjBasico);
+      const relatorio = await obterRelatorioInvestigacao(empresaReceitaSelecionada.cnpjBasico, profundidadeInvestigacao);
       setRelatorioInvestigacao(relatorio);
     } catch (error) {
       setErroInvestigacao(error instanceof Error ? error.message : "Erro ao gerar relatório de investigação.");
@@ -788,6 +789,21 @@ export default function App() {
                   relatorio={relatorioInvestigacao}
                   statusInvestigacao={resolveStatusInvestigacao(empresaReceitaSelecionada)}
                   onAbrirEmpresaReceita={selecionarEmpresaReceita}
+                  profundidade={profundidadeInvestigacao}
+                  onAlterarProfundidade={async (depth) => {
+                    if (!empresaReceitaSelecionada) return;
+                    setProfundidadeInvestigacao(depth);
+                    try {
+                      setErroInvestigacao("");
+                      setLoadingInvestigacao(true);
+                      const relatorio = await obterRelatorioInvestigacao(empresaReceitaSelecionada.cnpjBasico, depth);
+                      setRelatorioInvestigacao(relatorio);
+                    } catch (error) {
+                      setErroInvestigacao(error instanceof Error ? error.message : "Erro ao gerar relatório de investigação.");
+                    } finally {
+                      setLoadingInvestigacao(false);
+                    }
+                  }}
                 />
               )}
             </div>
@@ -1251,10 +1267,14 @@ function RelatorioInvestigacao({
   relatorio,
   statusInvestigacao,
   onAbrirEmpresaReceita,
+  profundidade,
+  onAlterarProfundidade,
 }: {
   relatorio: InvestigationReport;
   statusInvestigacao: import("./services/receita").StatusInvestigacao | null | undefined;
   onAbrirEmpresaReceita: (empresa: ReceitaEmpresa) => void;
+  profundidade: 1 | 2;
+  onAlterarProfundidade: (depth: 1 | 2) => void;
 }) {
   const { summary, target, findings, evidenceStrength, relations, graph } = relatorio;
   const [tipoExplorado, setTipoExplorado] = useState<ExplorationRelationType>("same_partner");
@@ -1276,13 +1296,43 @@ function RelatorioInvestigacao({
             {target.company.razaoSocial || target.company.cnpjBasico}
           </h3>
         </div>
-        <button
-          onClick={abrirDossie}
-          className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/20"
-        >
-          Gerar dossiê HTML
-        </button>
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            Profundidade do grafo
+            <select
+              value={profundidade}
+              onChange={(event) => onAlterarProfundidade(Number(event.target.value) as 1 | 2)}
+              className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 sm:w-40"
+            >
+              <option value={1}>Nível 1 (direto)</option>
+              <option value={2}>Nível 2 (expansão candidata)</option>
+            </select>
+          </label>
+          <button
+            onClick={abrirDossie}
+            className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/20"
+          >
+            Gerar dossiê HTML
+          </button>
+        </div>
       </div>
+
+      <details className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+        <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-amber-200">
+          Limitações da base (leia antes do dossiê)
+        </summary>
+        <ul className="mt-3 list-disc space-y-1 pl-4 text-xs leading-5 text-amber-100/90">
+          <li>CPF mascarado na base pública; correspondência por nome pode envolver homônimos.</li>
+          <li>Sem percentuais societários, atos societários, UBO formal ou prova patrimonial.</li>
+          <li>Base local parcial — vínculos são hipóteses com força de evidência, não conclusão.</li>
+          {summary.dataLimitations.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+          {evidenceStrength.limitations.map((item) => (
+            <li key={`ev-${item}`}>{item}</li>
+          ))}
+        </ul>
+      </details>
 
       {/* Resumo Executivo */}
       <div className="mt-4 rounded-xl border border-slate-700/60 bg-slate-800/40 p-4">

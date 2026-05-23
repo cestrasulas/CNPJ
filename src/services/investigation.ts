@@ -110,8 +110,11 @@ export type InvestigationAvailability = {
   canInvestigate: boolean;
 };
 
-export async function obterRelatorioInvestigacao(cnpjBasico: string): Promise<InvestigationReport> {
-  return apiGet<InvestigationReport>(`/api/investigation/company/${cnpjBasico}`);
+export async function obterRelatorioInvestigacao(
+  cnpjBasico: string,
+  depth: 1 | 2 = 1,
+): Promise<InvestigationReport> {
+  return apiGet<InvestigationReport>(`/api/investigation/company/${cnpjBasico}?depth=${depth}`);
 }
 
 export async function obterDisponibilidadeInvestigacao(cnpjBasico: string): Promise<InvestigationAvailability> {
