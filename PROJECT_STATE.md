@@ -332,7 +332,7 @@ Dados locais conhecidos:
 | Tabela | Registros |
 |---|---:|
 | `receita_empresas` | 27.628.041 |
-| `receita_estabelecimentos` | 100.000 |
+| `receita_estabelecimentos` | 4.853.435 (após Estabelecimentos1; import 1–9 em andamento) |
 | `receita_socios` | 1.187.000 |
 | `receita_municipios` | 5.572 |
 | `investigation_watch` | 1 (demo) |
@@ -411,3 +411,40 @@ Validação recente:
 - Rodar `npm run typecheck` e `npm run build` quando houver alteração frontend.
 - Rodar `cd backend && npm run typecheck && npm run build` quando houver alteração backend.
 - Pedir confirmação para ações destrutivas.
+
+### Importação incremental Receita — lote em andamento
+
+- Data: 2026-05-23
+- Diretório: `/Users/cris/Downloads/2026-05`
+- Baseline STRONG: 1.79% | PARTIAL: 0.09% | CADASTRAL: 98.12%
+- Estabelecimentos: 100.000 | Sócios: 1.187.000
+- Comando: `cd backend && npm run import:incremental -- --dir=/Users/cris/Downloads/2026-05 --from=1 --to=9`
+- Relatório: `npm run coverage:report` → `backend/reports/coverage-report.json`
+
+#### Importação: Estabelecimentos1.zip
+
+Status: ok
+
+Antes:
+
+- STRONG: 1.79%
+- PARTIAL: 0.09%
+- CADASTRAL: 98.12%
+- estabelecimentos: 100.000
+- socios: 1.187.000
+
+Depois:
+
+- STRONG: 1.79%
+- PARTIAL: 2.16%
+- CADASTRAL: 96.05%
+- estabelecimentos: 4.853.435
+- socios: 1.187.000
+
+Diferença:
+
+- STRONG: +0%
+- PARTIAL: +2.07%
+- CADASTRAL: -2.07%
+
+Nota: `cnpjs_completos` passou de 7 → 24; STRONG só sobe com mais partições de Sócios (1–9).

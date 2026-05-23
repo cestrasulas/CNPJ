@@ -7,7 +7,7 @@ import { receitaPool } from "../lib/receitaDb.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BACKEND_ROOT = path.resolve(__dirname, "../..");
 const DEFAULT_DATA_DIR = "/Users/cris/Downloads/2026-05";
-const PROJECT_STATE_PATH = path.resolve(BACKEND_ROOT, "../../PROJECT_STATE.md");
+const PROJECT_STATE_PATH = path.resolve(BACKEND_ROOT, "../PROJECT_STATE.md");
 
 const MAX_IMPORT_MS = Number(process.env.IMPORT_MAX_MS ?? 3_600_000);
 const MIN_FREE_GB = Number(process.env.IMPORT_MIN_FREE_GB ?? 15);
