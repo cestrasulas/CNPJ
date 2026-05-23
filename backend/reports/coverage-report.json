@@ -1,0 +1,222 @@
+{
+  "generatedAt": "2026-05-23T04:28:43.199Z",
+  "totals": {
+    "total_empresas": 27628041,
+    "total_estabelecimentos": 100000,
+    "total_socios": 1187000,
+    "cnpjs_empresa_estabelecimento": 26251,
+    "cnpjs_empresa_socios": 494299,
+    "cnpjs_completos": 7
+  },
+  "investigation_status": {
+    "STRONG": 494299,
+    "PARTIAL": 26244,
+    "CADASTRAL": 27107498,
+    "percent": {
+      "STRONG": 1.79,
+      "PARTIAL": 0.09,
+      "CADASTRAL": 98.12
+    }
+  },
+  "top_municipios": [
+    {
+      "municipio": "7107",
+      "uf": "SP",
+      "total": 6995
+    },
+    {
+      "municipio": "8801",
+      "uf": "RS",
+      "total": 5590
+    },
+    {
+      "municipio": "6001",
+      "uf": "RJ",
+      "total": 2794
+    },
+    {
+      "municipio": "9701",
+      "uf": "DF",
+      "total": 1609
+    },
+    {
+      "municipio": "9373",
+      "uf": "GO",
+      "total": 1591
+    },
+    {
+      "municipio": "4123",
+      "uf": "MG",
+      "total": 1533
+    },
+    {
+      "municipio": "7535",
+      "uf": "PR",
+      "total": 1481
+    },
+    {
+      "municipio": "3849",
+      "uf": "BA",
+      "total": 1305
+    },
+    {
+      "municipio": "1389",
+      "uf": "CE",
+      "total": 1228
+    },
+    {
+      "municipio": "8599",
+      "uf": "RS",
+      "total": 929
+    },
+    {
+      "municipio": "2531",
+      "uf": "PE",
+      "total": 776
+    },
+    {
+      "municipio": "8589",
+      "uf": "RS",
+      "total": 761
+    },
+    {
+      "municipio": "8791",
+      "uf": "RS",
+      "total": 751
+    },
+    {
+      "municipio": "0427",
+      "uf": "PA",
+      "total": 681
+    },
+    {
+      "municipio": "8771",
+      "uf": "RS",
+      "total": 673
+    }
+  ],
+  "top_nomes_socios": [
+    {
+      "nome": "anderson costa reis",
+      "total": 360
+    },
+    {
+      "nome": "ricardo elias restum antonio filho",
+      "total": 319
+    },
+    {
+      "nome": "katia maria bezerra silva",
+      "total": 215
+    },
+    {
+      "nome": "luiz felippe francis de lima camillo",
+      "total": 203
+    },
+    {
+      "nome": "medicalmais servicos em saude ltda",
+      "total": 164
+    },
+    {
+      "nome": "ksb solucoes em saude",
+      "total": 131
+    },
+    {
+      "nome": "leonardo de lemos lemer",
+      "total": 130
+    },
+    {
+      "nome": "david jhonatas dos santos pinto",
+      "total": 121
+    },
+    {
+      "nome": "avdv estetica ltda",
+      "total": 119
+    },
+    {
+      "nome": "fernando antonio kulnig cinelli",
+      "total": 117
+    },
+    {
+      "nome": "4id servicos medicos ltda",
+      "total": 115
+    },
+    {
+      "nome": "marcus auguste pimenta",
+      "total": 113
+    },
+    {
+      "nome": "rm scan servicos medicos ltda",
+      "total": 111
+    },
+    {
+      "nome": "ebes sistemas de energia sa",
+      "total": 107
+    },
+    {
+      "nome": "lider servicos medicos ltda",
+      "total": 103
+    }
+  ],
+  "top_telefones_compartilhados": [
+    {
+      "telefone": "000000000000",
+      "empresas_distintas": 687
+    },
+    {
+      "telefone": "4197880145",
+      "empresas_distintas": 58
+    },
+    {
+      "telefone": "00",
+      "empresas_distintas": 40
+    },
+    {
+      "telefone": "1199999999",
+      "empresas_distintas": 35
+    },
+    {
+      "telefone": "2125160368",
+      "empresas_distintas": 18
+    },
+    {
+      "telefone": "110",
+      "empresas_distintas": 17
+    },
+    {
+      "telefone": "4198130414",
+      "empresas_distintas": 16
+    },
+    {
+      "telefone": "1131241000",
+      "empresas_distintas": 15
+    },
+    {
+      "telefone": "9999999999",
+      "empresas_distintas": 13
+    },
+    {
+      "telefone": "1111111111",
+      "empresas_distintas": 13
+    },
+    {
+      "telefone": "2122222222",
+      "empresas_distintas": 11
+    },
+    {
+      "telefone": "210",
+      "empresas_distintas": 11
+    },
+    {
+      "telefone": "2199999999",
+      "empresas_distintas": 11
+    },
+    {
+      "telefone": "1136845122",
+      "empresas_distintas": 10
+    },
+    {
+      "telefone": "1130034828",
+      "empresas_distintas": 8
+    }
+  ]
+}
