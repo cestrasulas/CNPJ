@@ -7,11 +7,19 @@ Criado em 2026-05-22:
 - `AGENT_AUTOPILOT.md` — loop de trabalho etapa a etapa, permissões operacionais e limites
 - `AGENT_BACKLOG.md` — backlog priorizado com tarefas pequenas, critérios de aceite e validações
 
-Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **WS-001** (ou **PDF-002a** após decisão).
+Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **WS-002**.
 
 ---
 
 ## Histórico recente
+
+### 2026-05-23 — WS-001 Investigation Case
+
+- Tabelas `investigation_case` e `investigation_case_entities` no PostgreSQL local
+- Rotas: `POST/GET /api/cases`, `GET /api/cases/:id`, `POST /api/cases/:id/entities`
+- UI seção **Casos**: criar, listar, vincular empresa selecionada
+- Migration: `npm run db:migrate:cases`
+- Validações: typecheck/build OK; API testada
 
 ### 2026-05-22 — Autopilot batch (ER-003 → GR-003)
 
@@ -236,6 +244,7 @@ Backend:
 - Endpoint `GET /api/investigation/company/:cnpjBasico/availability`.
 - Endpoint `GET /api/investigation/company/:cnpjBasico/dossier.html`.
 - Endpoint `GET /api/search`.
+- `POST /api/cases`, `GET /api/cases`, `GET /api/cases/:id`, `POST /api/cases/:id/entities`.
 
 Dados locais conhecidos:
 
@@ -264,7 +273,7 @@ Validação recente:
 - Dossiê HTML v2 com evidências agrupadas — **concluído (DO-001/002)**
 - Grafo: expansão por profundidade — **concluído (GR-002/003)**
 - Exportação PDF do dossiê — **bloqueado (PDF-002)**
-- Workspace de casos — **pendente (WS-001)**
+- Workspace de casos — **WS-001 concluído; WS-002 pendente**
 - Força das evidências por grupo econômico candidato
 - Camada Serpro opcional sob demanda
 - CVM e DataJud como fontes abertas complementares

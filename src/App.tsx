@@ -1,5 +1,5 @@
 // path: src/App.tsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { JsonObject, JsonValue, NormalizedCompany, ProviderId } from "./types/cnpj";
 import {
@@ -20,6 +20,14 @@ import {
   type InvestigationRelation,
   type InvestigationReport,
 } from "./services/investigation";
+import {
+  adicionarEntidadeAoCaso,
+  criarCasoInvestigacao,
+  listarCasosInvestigacao,
+  obterCasoInvestigacao,
+  type InvestigationCase,
+  type InvestigationCaseDetail,
+} from "./services/cases";
 import { normalizarEmpresa } from "./services/normalizer";
 import { consultarProvider } from "./services/providers";
 import {
@@ -97,6 +105,13 @@ export default function App() {
   const [loadingBuscaInvestigativa, setLoadingBuscaInvestigativa] = useState(false);
   const [erroBuscaInvestigativa, setErroBuscaInvestigativa] = useState("");
   const [buscaInvestigativaPesquisada, setBuscaInvestigativaPesquisada] = useState(false);
+  const [casosInvestigacao, setCasosInvestigacao] = useState<InvestigationCase[]>([]);
+  const [casoSelecionadoId, setCasoSelecionadoId] = useState<string | null>(null);
+  const [casoDetalhe, setCasoDetalhe] = useState<InvestigationCaseDetail | null>(null);
+  const [tituloNovoCaso, setTituloNovoCaso] = useState("");
+  const [descricaoNovoCaso, setDescricaoNovoCaso] = useState("");
+  const [loadingCasos, setLoadingCasos] = useState(false);
+  const [erroCasos, setErroCasos] = useState("");
   const [historico, setHistorico] = useState<HistoricoItem[]>(() => {
     try {
       const salvo = localStorage.getItem(HISTORICO_KEY);
@@ -152,6 +167,72 @@ export default function App() {
     }
     return possuiDadoInvestigavel(estabelecimentosReceita);
   }, [disponibilidadeInvestigacao, empresaReceitaSelecionada, estabelecimentosReceita]);
+
+  useEffect(() => {
+    void carregarCasosInvestigacao();
+  }, []);
+
+  async function carregarCasosInvestigacao() {
+    try {
+      setErroCasos("");
+      setLoadingCasos(true);
+      const lista = await listarCasosInvestigacao();
+      setCasosInvestigacao(lista);
+    } catch (error) {
+      setErroCasos(error instanceof Error ? error.message : "Erro ao carregar casos.");
+    } finally {
+      setLoadingCasos(false);
+    }
+  }
+
+  async function selecionarCasoInvestigacao(id: string) {
+    try {
+      setErroCasos("");
+      setCasoSelecionadoId(id);
+      const detalhe = await obterCasoInvestigacao(id);
+      setCasoDetalhe(detalhe);
+    } catch (error) {
+      setErroCasos(error instanceof Error ? error.message : "Erro ao carregar caso.");
+    }
+  }
+
+  async function criarNovoCasoInvestigacao() {
+    if (!tituloNovoCaso.trim()) return;
+
+    try {
+      setErroCasos("");
+      setLoadingCasos(true);
+      const created = await criarCasoInvestigacao({
+        title: tituloNovoCaso.trim(),
+        description: descricaoNovoCaso.trim() || null,
+      });
+      setTituloNovoCaso("");
+      setDescricaoNovoCaso("");
+      await carregarCasosInvestigacao();
+      await selecionarCasoInvestigacao(created.id);
+    } catch (error) {
+      setErroCasos(error instanceof Error ? error.message : "Erro ao criar caso.");
+    } finally {
+      setLoadingCasos(false);
+    }
+  }
+
+  async function adicionarEmpresaSelecionadaAoCaso() {
+    if (!casoSelecionadoId || !empresaReceitaSelecionada) return;
+
+    try {
+      setErroCasos("");
+      await adicionarEntidadeAoCaso(casoSelecionadoId, {
+        entityType: "company",
+        entityValue: empresaReceitaSelecionada.cnpjBasico,
+        entityLabel: empresaReceitaSelecionada.razaoSocial || empresaReceitaSelecionada.cnpjBasico,
+      });
+      await selecionarCasoInvestigacao(casoSelecionadoId);
+      await carregarCasosInvestigacao();
+    } catch (error) {
+      setErroCasos(error instanceof Error ? error.message : "Erro ao adicionar empresa ao caso.");
+    }
+  }
 
   async function consultar() {
     await consultarCnpj(cnpj);
@@ -597,6 +678,23 @@ export default function App() {
             />
           )}
         </section>
+
+        <SecaoCasosInvestigacao
+          casos={casosInvestigacao}
+          casoSelecionadoId={casoSelecionadoId}
+          casoDetalhe={casoDetalhe}
+          tituloNovoCaso={tituloNovoCaso}
+          descricaoNovoCaso={descricaoNovoCaso}
+          loading={loadingCasos}
+          erro={erroCasos}
+          empresaSelecionada={empresaReceitaSelecionada}
+          onTituloChange={setTituloNovoCaso}
+          onDescricaoChange={setDescricaoNovoCaso}
+          onCriarCaso={criarNovoCasoInvestigacao}
+          onSelecionarCaso={selecionarCasoInvestigacao}
+          onAdicionarEmpresa={adicionarEmpresaSelecionadaAoCaso}
+          onRecarregar={carregarCasosInvestigacao}
+        />
 
         <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -2376,6 +2474,172 @@ function JsonTree({
         {formatarValor(nome || "", valor)}
       </p>
     </div>
+  );
+}
+
+function SecaoCasosInvestigacao({
+  casos,
+  casoSelecionadoId,
+  casoDetalhe,
+  tituloNovoCaso,
+  descricaoNovoCaso,
+  loading,
+  erro,
+  empresaSelecionada,
+  onTituloChange,
+  onDescricaoChange,
+  onCriarCaso,
+  onSelecionarCaso,
+  onAdicionarEmpresa,
+  onRecarregar,
+}: {
+  casos: InvestigationCase[];
+  casoSelecionadoId: string | null;
+  casoDetalhe: InvestigationCaseDetail | null;
+  tituloNovoCaso: string;
+  descricaoNovoCaso: string;
+  loading: boolean;
+  erro: string;
+  empresaSelecionada: ReceitaEmpresa | null;
+  onTituloChange: (value: string) => void;
+  onDescricaoChange: (value: string) => void;
+  onCriarCaso: () => void;
+  onSelecionarCaso: (id: string) => void;
+  onAdicionarEmpresa: () => void;
+  onRecarregar: () => void;
+}) {
+  return (
+    <section className="mb-6 rounded-3xl border border-violet-500/20 bg-slate-900 p-5 shadow-xl">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-violet-300">Workspace</p>
+          <h2 className="mt-2 text-2xl font-black text-white">Casos</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Organize investigações em casos e vincule empresas candidatas da base local.
+          </p>
+        </div>
+        <button
+          onClick={() => void onRecarregar()}
+          disabled={loading}
+          className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+        >
+          Atualizar
+        </button>
+      </div>
+
+      {erro && (
+        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+          {erro}
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Novo caso</p>
+          <input
+            value={tituloNovoCaso}
+            onChange={(e) => onTituloChange(e.target.value)}
+            placeholder="Título do caso"
+            className="mt-3 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+          />
+          <textarea
+            value={descricaoNovoCaso}
+            onChange={(e) => onDescricaoChange(e.target.value)}
+            placeholder="Descrição opcional"
+            rows={3}
+            className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+          />
+          <button
+            onClick={() => void onCriarCaso()}
+            disabled={loading || !tituloNovoCaso.trim()}
+            className="mt-3 rounded-xl bg-violet-500 px-4 py-2 text-xs font-bold text-white hover:bg-violet-400 disabled:bg-slate-700 disabled:text-slate-400"
+          >
+            Criar caso
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+            Casos ({casos.length})
+          </p>
+          {loading && casos.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-400">Carregando casos...</p>
+          ) : casos.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-400">Nenhum caso criado ainda.</p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {casos.map((caso) => (
+                <button
+                  key={caso.id}
+                  onClick={() => void onSelecionarCaso(caso.id)}
+                  className={`w-full rounded-xl border p-3 text-left transition-colors ${
+                    casoSelecionadoId === caso.id
+                      ? "border-violet-400 bg-violet-500/10"
+                      : "border-slate-800 bg-slate-900 hover:border-violet-500/40"
+                  }`}
+                >
+                  <p className="font-bold text-white">{caso.title}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {caso.status} · {caso.entityCount ?? 0} entidade(s)
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {casoDetalhe && (
+        <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-violet-300">Caso selecionado</p>
+              <h3 className="mt-1 text-lg font-black text-white">{casoDetalhe.title}</h3>
+              {casoDetalhe.description && (
+                <p className="mt-1 text-sm text-slate-400">{casoDetalhe.description}</p>
+              )}
+            </div>
+            {empresaSelecionada && (
+              <button
+                onClick={() => void onAdicionarEmpresa()}
+                className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-xs font-bold text-violet-100 hover:bg-violet-500/20"
+              >
+                Adicionar empresa selecionada
+              </button>
+            )}
+          </div>
+
+          {!empresaSelecionada && (
+            <p className="mt-3 text-xs text-slate-500">
+              Selecione uma empresa na busca Receita para vinculá-la a este caso.
+            </p>
+          )}
+
+          <div className="mt-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Entidades</p>
+            {casoDetalhe.entities.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-400">Nenhuma entidade vinculada.</p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {casoDetalhe.entities.map((entity) => (
+                  <li
+                    key={entity.id}
+                    className="rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2 text-sm text-slate-200"
+                  >
+                    <span className="font-bold text-violet-200">{entity.entityType}</span>
+                    {" · "}
+                    {entity.entityLabel || entity.entityValue}
+                    {entity.entityType === "company" && (
+                      <span className="text-slate-500"> (CNPJ básico {entity.entityValue})</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "db:up": "docker compose up -d",
     "db:migrate:receita": "tsx src/importers/receita/migrate-receita.ts",
+    "db:migrate:cases": "tsx src/migrate-cases.ts",
     "import:empresas": "tsx src/importers/receita/import-empresas.ts",
     "import:estabelecimentos": "tsx src/importers/receita/import-estabelecimentos.ts",
     "import:socios": "tsx src/importers/receita/import-socios.ts",

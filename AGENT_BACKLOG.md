@@ -33,7 +33,7 @@ Agentes: pegar sempre a **primeira tarefa `PENDENTE`** da lista (topo = maior pr
 | PDF-001 | Spike estratégia PDF | CONCLUÍDA |
 | CVM-001 | Spike fontes CVM | CONCLUÍDA |
 | DJ-001 | Spike DataJud | CONCLUÍDA |
-| RB-001 | Spike modelo RBAC | CONCLUÍDA |
+| WS-001 | Modelo investigation_case + rotas CRUD mínimas + UI Casos | CONCLUÍDA |
 
 ---
 
@@ -612,7 +612,7 @@ curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:3001/api/investigation/
 
 ### WS-001 — Modelo de dados `investigation_case` (Supabase migration)
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Tabela para salvar investigação: `cnpj_basico`, título, notas, status, snapshot JSON opcional.
 

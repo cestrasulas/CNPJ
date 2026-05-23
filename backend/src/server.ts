@@ -1,6 +1,7 @@
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { env } from "./config/env.js";
+import { casesRoutes } from "./routes/cases.routes.js";
 import { companiesRoutes } from "./routes/companies.routes.js";
 import { investigationRoutes } from "./routes/investigation.routes.js";
 import { receitaRoutes } from "./routes/receita.routes.js";
@@ -27,6 +28,7 @@ app.get("/health", async () => ({
 }));
 
 await app.register(companiesRoutes);
+await app.register(casesRoutes);
 await app.register(receitaRoutes);
 await app.register(investigationRoutes);
 await app.register(searchRoutes);
