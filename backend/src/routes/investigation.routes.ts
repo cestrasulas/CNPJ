@@ -18,7 +18,9 @@ export async function investigationRoutes(app: FastifyInstance) {
     }
 
     try {
-      const report = await buildInvestigationReport(cnpjBasico);
+      const query = request.query as { depth?: string };
+      const depth = Math.min(Math.max(Number.parseInt(query.depth || "1", 10) || 1, 1), 2);
+      const report = await buildInvestigationReport(cnpjBasico, { depth });
       return reply.send(report);
     } catch (error) {
       request.log.error(error);

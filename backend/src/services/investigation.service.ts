@@ -1,4 +1,8 @@
 import { receitaPool } from "../lib/receitaDb.js";
+import {
+  isUltraFrequentPartnerName,
+  ULTRA_FREQUENT_NAME_ONLY_CAP,
+} from "../lib/commonPartnerNames.js";
 
 type Empresa = {
   cnpjBasico: string;
@@ -146,17 +150,22 @@ export async function getInvestigationAvailability(cnpjBasico: string) {
   };
 }
 
-export async function buildInvestigationReport(cnpjBasico: string) {
+export async function buildInvestigationReport(cnpjBasico: string, options: { depth?: number } = {}) {
+  const depth = Math.min(Math.max(options.depth ?? 1, 1), 2);
   const target = await findEmpresa(cnpjBasico);
   const estabelecimentos = await listEstabelecimentos(cnpjBasico);
   const socios = await listSocios(cnpjBasico);
-  const relations = limitRelations([
+  let relations = limitRelations([
     ...buildBranchRelations(target, estabelecimentos),
     ...(await findSamePartnerRelations(cnpjBasico, socios, estabelecimentos)),
     ...(await findSameAddressRelations(cnpjBasico, estabelecimentos)),
     ...(await findSameContactRelations(cnpjBasico, estabelecimentos, "phone")),
     ...(await findSameContactRelations(cnpjBasico, estabelecimentos, "email")),
   ]);
+
+  if (depth >= 2) {
+    relations = limitRelations([...relations, ...(await expandRelationsDepth2(cnpjBasico, relations))]);
+  }
 
   const totalRelatedByPartner = relations.filter((r) => r.type === "same_partner").length;
   const totalRelatedByAddress = relations.filter((r) => r.type === "same_address").length;
@@ -344,7 +353,8 @@ async function findSamePartnerRelations(
   const socioByDocument = new Map(socios.filter((socio) => socio.documento).map((socio) => [socio.documento!, socio]));
   const socioByName = new Map(socios.filter((socio) => socio.nome).map((socio) => [socio.nome!, socio]));
 
-  return rows.map((row) => {
+  return applyUltraFrequentNamePartnerLimits(
+    rows.map((row) => {
     const partnerName = String(row.nome_socio || "não identificado");
     const matchKind = row.match_kind === "document" ? "document" : "name";
     const targetSocio =
@@ -379,7 +389,45 @@ async function findSamePartnerRelations(
       evidence,
       entityConfidence,
     };
-  });
+  }),
+  );
+}
+
+function isDocumentPartnerMatch(relation: Relation): boolean {
+  return Boolean(
+    relation.entityConfidence?.reasons.some((reason) => reason.includes("identificador cadastral")),
+  );
+}
+
+function applyUltraFrequentNamePartnerLimits(relations: Relation[]): Relation[] {
+  const documentMatches = relations.filter(isDocumentPartnerMatch);
+  const nameOnly = relations.filter((relation) => !isDocumentPartnerMatch(relation));
+  const ultraFrequent = nameOnly.filter((relation) => isUltraFrequentPartnerName(relation.evidence.value));
+  const regularNameOnly = nameOnly.filter((relation) => !isUltraFrequentPartnerName(relation.evidence.value));
+
+  const cappedUltra = ultraFrequent
+    .slice(0, ULTRA_FREQUENT_NAME_ONLY_CAP)
+    .map((relation) => forceLowEntityForUltraFrequentName(relation));
+
+  return [...documentMatches, ...regularNameOnly, ...cappedUltra];
+}
+
+function forceLowEntityForUltraFrequentName(relation: Relation): Relation {
+  const entityConfidence: EntityConfidence = {
+    level: "LOW",
+    reasons: [
+      ...(relation.entityConfidence?.reasons ?? []),
+      "Nome estatisticamente frequente na base — correspondência por nome limitada para reduzir homônimos.",
+    ],
+  };
+
+  return {
+    ...relation,
+    score: 20,
+    classification: "INFERIDO",
+    entityConfidence,
+    evidence: buildPartnerRelationEvidence(relation.evidence.value, entityConfidence),
+  };
 }
 
 type ContactSignals = {
@@ -588,6 +636,41 @@ function limitRelations(relations: Relation[]): Relation[] {
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, 50);
+}
+
+async function expandRelationsDepth2(originCnpjBasico: string, primary: Relation[]): Promise<Relation[]> {
+  const seen = new Set(primary.map((relation) => `${relation.type}-${relation.company.cnpjBasico}`));
+  const extra: Relation[] = [];
+  const seeds = [...new Set(primary.map((relation) => relation.company.cnpjBasico))]
+    .filter((cnpj) => cnpj !== originCnpjBasico)
+    .slice(0, 5);
+
+  for (const seedCnpj of seeds) {
+    const socios = await listSocios(seedCnpj);
+    const estabelecimentos = await listEstabelecimentos(seedCnpj);
+    const seedRelations = [
+      ...(await findSamePartnerRelations(seedCnpj, socios, estabelecimentos)),
+      ...(await findSameAddressRelations(seedCnpj, estabelecimentos)),
+      ...(await findSameContactRelations(seedCnpj, estabelecimentos, "phone")),
+      ...(await findSameContactRelations(seedCnpj, estabelecimentos, "email")),
+    ];
+
+    for (const relation of seedRelations) {
+      if (relation.company.cnpjBasico === originCnpjBasico) continue;
+      const key = `${relation.type}-${relation.company.cnpjBasico}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      extra.push({
+        ...relation,
+        score: Math.max(10, Math.floor(relation.score * 0.6)),
+        reason: `[Profundidade 2 via ${seedCnpj}] ${relation.reason}`,
+        classification: relation.classification === "DECLARADO" ? "INFERIDO" : relation.classification,
+      });
+      if (extra.length >= 15) return extra;
+    }
+  }
+
+  return extra;
 }
 
 function buildRelationEvidence(type: Relation["type"], value: string, explanation: string): RelationEvidence {
@@ -817,15 +900,36 @@ function buildFindings(
 
 function buildEvidenceStrength(relations: Relation[]): EvidenceStrength {
   const points = relations.reduce((total, relation) => total + evidenceClassificationPoints(relation.classification), 0);
-  const level: FindingSeverity = points >= 100 ? "HIGH" : points >= 40 ? "MEDIUM" : "LOW";
+  let level: FindingSeverity = points >= 100 ? "HIGH" : points >= 40 ? "MEDIUM" : "LOW";
   const reasons = buildEvidenceStrengthReasons(relations);
+  const limitations = [...defaultEvidenceLimitations()];
+
+  const lowEntityPartners = relations.filter(
+    (relation) => relation.type === "same_partner" && relation.entityConfidence?.level === "LOW",
+  ).length;
+
+  if (lowEntityPartners >= 3) {
+    level = capEvidenceStrengthLevel(level);
+    reasons.push(
+      `${lowEntityPartners} possível(is) correspondência(s) de sócio com confiança de entidade baixa (homônimos prováveis).`,
+    );
+    limitations.push(
+      `${lowEntityPartners} vínculos por sócio baseados apenas em nome cadastral — não elevar conclusão sem evidências adicionais.`,
+    );
+  }
 
   return {
     level,
     points,
-    reasons: reasons.length > 0 ? reasons : ["Poucas evidências relacionais disponíveis na base local."],
-    limitations: defaultEvidenceLimitations(),
+    reasons: reasons.length > 0 ? reasons.slice(0, 6) : ["Poucas evidências relacionais disponíveis na base local."],
+    limitations,
   };
+}
+
+function capEvidenceStrengthLevel(level: FindingSeverity): FindingSeverity {
+  if (level === "HIGH") return "MEDIUM";
+  if (level === "MEDIUM") return "LOW";
+  return "LOW";
 }
 
 function evidenceClassificationPoints(classification: EvidenceClassification): number {
@@ -1120,7 +1224,7 @@ function renderDossierHtml(report: InvestigationReportData): string {
 
   <section class="card">
     <h2>Relações e evidências</h2>
-    ${relations.length > 0 ? renderRelationsTable(relations) : "<p>Nenhuma relação detectada.</p>"}
+    ${relations.length > 0 ? renderRelationsByType(relations) : "<p>Nenhuma relação detectada.</p>"}
   </section>
 
   <section class="card">
@@ -1133,8 +1237,19 @@ function renderDossierHtml(report: InvestigationReportData): string {
     ${list([
       "A base local é parcial e pode não conter todos os estabelecimentos, sócios ou contatos disponíveis nacionalmente.",
       "CPF/CNPJ de sócios pode estar mascarado na fonte pública.",
+      "Correspondência por nome cadastral indica possível correspondência, não identidade comprovada da pessoa física.",
       "Relações indicam evidências cadastrais compartilhadas; não são prova isolada de grupo econômico candidato.",
       "Este relatório não substitui análise jurídica/compliance humana.",
+      ...summary.dataLimitations,
+      ...evidenceStrength.limitations.filter(
+        (item) =>
+          !summary.dataLimitations.includes(item) &&
+          item !== "CPF mascarado na base pública" &&
+          item !== "ausência de percentuais societários" &&
+          item !== "ausência de atos societários" &&
+          item !== "ausência de UBO formal" &&
+          item !== "correspondência por nome pode envolver homônimos",
+      ),
     ])}
   </section>
 </body>
@@ -1159,6 +1274,25 @@ function renderFinding(finding: Finding): string {
   </div>`;
 }
 
+function renderRelationsByType(relations: Relation[]): string {
+  const groups: Array<{ type: Relation["type"]; title: string }> = [
+    { type: "same_partner", title: "Possível correspondência de sócio" },
+    { type: "same_phone", title: "Telefone compartilhado" },
+    { type: "same_email", title: "E-mail compartilhado" },
+    { type: "same_address", title: "Endereço compartilhado" },
+    { type: "same_root", title: "Matriz e filiais" },
+  ];
+
+  return groups
+    .map(({ type, title }) => {
+      const items = relations.filter((relation) => relation.type === type);
+      if (items.length === 0) return "";
+      return `<h3>${escapeHtml(title)} (${items.length})</h3>${renderRelationsTable(items)}`;
+    })
+    .filter(Boolean)
+    .join("");
+}
+
 function renderRelationsTable(relations: Relation[]): string {
   return `<table>
     <thead>
@@ -1181,8 +1315,14 @@ function renderRelationsTable(relations: Relation[]): string {
 
 function renderRelationRow(relation: Relation): string {
   const evidence = relation.evidence;
+  const homonymWarning =
+    relation.type === "same_partner" &&
+    relation.entityConfidence &&
+    (relation.entityConfidence.level === "LOW" || relation.entityConfidence.level === "MEDIUM")
+      ? `<p><em>Esta relação pode conter homônimos.</em></p>`
+      : "";
   const entityBlock = relation.entityConfidence
-    ? `<span class="badge ${severityClass(relation.entityConfidence.level)}">${escapeHtml(relation.entityConfidence.level)}</span><br>${list(relation.entityConfidence.reasons)}`
+    ? `<span class="badge ${severityClass(relation.entityConfidence.level)}">${escapeHtml(relation.entityConfidence.level)}</span>${homonymWarning}<br>${list(relation.entityConfidence.reasons)}`
     : "<span class=\"muted\">—</span>";
   return `<tr>
     <td>${escapeHtml(relation.type)}</td>
