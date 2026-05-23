@@ -52,3 +52,22 @@ export async function adicionarEntidadeAoCaso(
 ): Promise<InvestigationCaseEntity> {
   return apiPost<InvestigationCaseEntity>(`/api/cases/${caseId}/entities`, input);
 }
+
+export async function salvarInvestigacaoComoCaso(input: {
+  cnpjBasico: string;
+  razaoSocial?: string | null;
+  notes?: string | null;
+}): Promise<InvestigationCaseDetail> {
+  const razao = input.razaoSocial?.trim();
+  const title = razao ? `Investigação — ${razao}` : `Investigação — CNPJ ${input.cnpjBasico}`;
+  const created = await criarCasoInvestigacao({
+    title,
+    description: input.notes?.trim() || null,
+  });
+  await adicionarEntidadeAoCaso(created.id, {
+    entityType: "company",
+    entityValue: input.cnpjBasico,
+    entityLabel: razao || null,
+  });
+  return obterCasoInvestigacao(created.id);
+}

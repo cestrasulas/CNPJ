@@ -25,6 +25,7 @@ import {
   criarCasoInvestigacao,
   listarCasosInvestigacao,
   obterCasoInvestigacao,
+  salvarInvestigacaoComoCaso,
   type InvestigationCase,
   type InvestigationCaseDetail,
 } from "./services/cases";
@@ -112,6 +113,8 @@ export default function App() {
   const [descricaoNovoCaso, setDescricaoNovoCaso] = useState("");
   const [loadingCasos, setLoadingCasos] = useState(false);
   const [erroCasos, setErroCasos] = useState("");
+  const [salvandoInvestigacaoComoCaso, setSalvandoInvestigacaoComoCaso] = useState(false);
+  const [feedbackSalvarCaso, setFeedbackSalvarCaso] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [historico, setHistorico] = useState<HistoricoItem[]>(() => {
     try {
       const salvo = localStorage.getItem(HISTORICO_KEY);
@@ -231,6 +234,35 @@ export default function App() {
       await carregarCasosInvestigacao();
     } catch (error) {
       setErroCasos(error instanceof Error ? error.message : "Erro ao adicionar empresa ao caso.");
+    }
+  }
+
+  async function salvarInvestigacaoAtualComoCaso() {
+    if (!relatorioInvestigacao) return;
+
+    const { target, evidenceStrength } = relatorioInvestigacao;
+    try {
+      setFeedbackSalvarCaso(null);
+      setSalvandoInvestigacaoComoCaso(true);
+      const detalhe = await salvarInvestigacaoComoCaso({
+        cnpjBasico: target.company.cnpjBasico,
+        razaoSocial: target.company.razaoSocial,
+        notes: `Força das evidências: ${evidenceStrength.level}. Profundidade do grafo: ${profundidadeInvestigacao}.`,
+      });
+      await carregarCasosInvestigacao();
+      setCasoSelecionadoId(detalhe.id);
+      setCasoDetalhe(detalhe);
+      setFeedbackSalvarCaso({
+        type: "success",
+        message: `Caso "${detalhe.title}" salvo. Veja na seção Casos abaixo.`,
+      });
+    } catch (error) {
+      setFeedbackSalvarCaso({
+        type: "error",
+        message: error instanceof Error ? error.message : "Erro ao salvar investigação como caso.",
+      });
+    } finally {
+      setSalvandoInvestigacaoComoCaso(false);
     }
   }
 
@@ -378,6 +410,7 @@ export default function App() {
     await selecionarEmpresaReceita(empresa);
     try {
       setErroInvestigacao("");
+      setFeedbackSalvarCaso(null);
       setLoadingInvestigacao(true);
       const relatorio = await obterRelatorioInvestigacao(empresa.cnpjBasico, profundidadeInvestigacao);
       setRelatorioInvestigacao(relatorio);
@@ -455,6 +488,7 @@ export default function App() {
 
     try {
       setErroInvestigacao("");
+      setFeedbackSalvarCaso(null);
       setLoadingInvestigacao(true);
       const relatorio = await obterRelatorioInvestigacao(empresaReceitaSelecionada.cnpjBasico, profundidadeInvestigacao);
       setRelatorioInvestigacao(relatorio);
@@ -902,6 +936,9 @@ export default function App() {
                       setLoadingInvestigacao(false);
                     }
                   }}
+                  onSalvarComoCaso={() => void salvarInvestigacaoAtualComoCaso()}
+                  salvandoCaso={salvandoInvestigacaoComoCaso}
+                  feedbackSalvarCaso={feedbackSalvarCaso}
                 />
               )}
             </div>
@@ -1367,12 +1404,18 @@ function RelatorioInvestigacao({
   onAbrirEmpresaReceita,
   profundidade,
   onAlterarProfundidade,
+  onSalvarComoCaso,
+  salvandoCaso,
+  feedbackSalvarCaso,
 }: {
   relatorio: InvestigationReport;
   statusInvestigacao: import("./services/receita").StatusInvestigacao | null | undefined;
   onAbrirEmpresaReceita: (empresa: ReceitaEmpresa) => void;
   profundidade: 1 | 2;
   onAlterarProfundidade: (depth: 1 | 2) => void;
+  onSalvarComoCaso?: () => void;
+  salvandoCaso?: boolean;
+  feedbackSalvarCaso?: { type: "success" | "error"; message: string } | null;
 }) {
   const { summary, target, findings, evidenceStrength, relations, graph } = relatorio;
   const [tipoExplorado, setTipoExplorado] = useState<ExplorationRelationType>("same_partner");
@@ -1412,8 +1455,29 @@ function RelatorioInvestigacao({
           >
             Gerar dossiê HTML
           </button>
+          {onSalvarComoCaso && (
+            <button
+              onClick={onSalvarComoCaso}
+              disabled={salvandoCaso}
+              className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-xs font-bold text-violet-100 hover:bg-violet-500/20 disabled:opacity-50"
+            >
+              {salvandoCaso ? "Salvando caso..." : "Salvar como caso"}
+            </button>
+          )}
         </div>
       </div>
+
+      {feedbackSalvarCaso && (
+        <div
+          className={`mt-3 rounded-xl border p-3 text-sm ${
+            feedbackSalvarCaso.type === "success"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+              : "border-red-500/30 bg-red-500/10 text-red-200"
+          }`}
+        >
+          {feedbackSalvarCaso.message}
+        </div>
+      )}
 
       <details className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
         <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-amber-200">
