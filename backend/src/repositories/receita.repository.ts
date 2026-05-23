@@ -64,6 +64,273 @@ export async function searchReceitaEmpresas(q: string, limit: number): Promise<R
   return rows;
 }
 
+export type ReceitaPartnerSearchRow = {
+  nome_socio: string;
+  total_empresas: number;
+};
+
+export type ReceitaContactSearchRow = {
+  valor: string;
+  total_empresas: number;
+};
+
+export async function searchReceitaByCnpjBasico(cnpjBasico: string): Promise<ReceitaEmpresaRow[]> {
+  const { rows } = await receitaPool.query<ReceitaEmpresaRow>(
+    `
+      select
+        e.cnpj_basico,
+        e.razao_social,
+        e.natureza_juridica,
+        e.qualificacao_responsavel,
+        e.capital_social::text,
+        e.porte,
+        exists(select 1 from receita_estabelecimentos est where est.cnpj_basico = e.cnpj_basico) as tem_estabelecimento,
+        exists(select 1 from receita_socios s where s.cnpj_basico = e.cnpj_basico) as tem_socio
+      from receita_empresas e
+      where e.cnpj_basico = $1
+      limit 1
+    `,
+    [cnpjBasico],
+  );
+
+  return rows;
+}
+
+export async function searchReceitaByCnpjCompleto(cnpjCompleto: string): Promise<(ReceitaEmpresaRow & { cnpj_completo: string })[]> {
+  const { rows } = await receitaPool.query<ReceitaEmpresaRow & { cnpj_completo: string }>(
+    `
+      select
+        e.cnpj_basico,
+        e.razao_social,
+        e.natureza_juridica,
+        e.qualificacao_responsavel,
+        e.capital_social::text,
+        e.porte,
+        true as tem_estabelecimento,
+        exists(select 1 from receita_socios s where s.cnpj_basico = e.cnpj_basico) as tem_socio,
+        est.cnpj as cnpj_completo
+      from receita_estabelecimentos est
+      join receita_empresas e on e.cnpj_basico = est.cnpj_basico
+      where est.cnpj = $1
+      limit 1
+    `,
+    [cnpjCompleto],
+  );
+
+  return rows;
+}
+
+export async function searchReceitaPartners(q: string, limit: number): Promise<ReceitaPartnerSearchRow[]> {
+  const termo = q.trim().toLowerCase();
+  if (!termo) return [];
+
+  const { rows } = await receitaPool.query<ReceitaPartnerSearchRow>(
+    `
+      select
+        s.nome_socio,
+        count(distinct s.cnpj_basico)::int as total_empresas
+      from receita_socios s
+      where lower(s.nome_socio) like '%' || $1 || '%'
+      group by s.nome_socio
+      order by total_empresas desc, s.nome_socio asc
+      limit $2
+    `,
+    [termo, limit],
+  );
+
+  return rows;
+}
+
+export async function searchReceitaCompaniesByPartner(q: string, limit: number): Promise<(ReceitaEmpresaRow & { nome_socio: string })[]> {
+  const termo = q.trim().toLowerCase();
+  if (!termo) return [];
+
+  const { rows } = await receitaPool.query<ReceitaEmpresaRow & { nome_socio: string }>(
+    `
+      select distinct
+        e.cnpj_basico,
+        e.razao_social,
+        e.natureza_juridica,
+        e.qualificacao_responsavel,
+        e.capital_social::text,
+        e.porte,
+        exists(select 1 from receita_estabelecimentos est where est.cnpj_basico = e.cnpj_basico) as tem_estabelecimento,
+        exists(select 1 from receita_socios s2 where s2.cnpj_basico = e.cnpj_basico) as tem_socio,
+        s.nome_socio
+      from receita_socios s
+      join receita_empresas e on e.cnpj_basico = s.cnpj_basico
+      where lower(s.nome_socio) like '%' || $1 || '%'
+      order by e.razao_social asc
+      limit $2
+    `,
+    [termo, limit],
+  );
+
+  return rows;
+}
+
+export async function searchReceitaPhones(q: string, limit: number): Promise<ReceitaContactSearchRow[]> {
+  const termo = q.replace(/\D/g, "");
+  if (!termo) return [];
+
+  const { rows } = await receitaPool.query<ReceitaContactSearchRow>(
+    `
+      select
+        est.telefone1_normalizado as valor,
+        count(distinct est.cnpj_basico)::int as total_empresas
+      from receita_estabelecimentos est
+      where coalesce(est.telefone1_normalizado, '') <> ''
+        and est.telefone1_normalizado like '%' || $1 || '%'
+      group by est.telefone1_normalizado
+      order by total_empresas desc, est.telefone1_normalizado asc
+      limit $2
+    `,
+    [termo, limit],
+  );
+
+  return rows;
+}
+
+export async function searchReceitaCompaniesByPhone(phone: string, limit: number): Promise<ReceitaEmpresaRow[]> {
+  const termo = phone.replace(/\D/g, "");
+  if (!termo) return [];
+
+  const { rows } = await receitaPool.query<ReceitaEmpresaRow>(
+    `
+      select distinct
+        e.cnpj_basico,
+        e.razao_social,
+        e.natureza_juridica,
+        e.qualificacao_responsavel,
+        e.capital_social::text,
+        e.porte,
+        true as tem_estabelecimento,
+        exists(select 1 from receita_socios s where s.cnpj_basico = e.cnpj_basico) as tem_socio
+      from receita_estabelecimentos est
+      join receita_empresas e on e.cnpj_basico = est.cnpj_basico
+      where est.telefone1_normalizado = $1
+      order by e.razao_social asc
+      limit $2
+    `,
+    [termo, limit],
+  );
+
+  return rows;
+}
+
+export async function searchReceitaEmails(q: string, limit: number): Promise<ReceitaContactSearchRow[]> {
+  const termo = q.trim().toLowerCase();
+  if (!termo) return [];
+
+  const { rows } = await receitaPool.query<ReceitaContactSearchRow>(
+    `
+      select
+        coalesce(est.email_normalizado, lower(est.email)) as valor,
+        count(distinct est.cnpj_basico)::int as total_empresas
+      from receita_estabelecimentos est
+      where coalesce(est.email_normalizado, est.email, '') <> ''
+        and coalesce(est.email_normalizado, lower(est.email)) like '%' || $1 || '%'
+      group by coalesce(est.email_normalizado, lower(est.email))
+      order by total_empresas desc, valor asc
+      limit $2
+    `,
+    [termo, limit],
+  );
+
+  return rows;
+}
+
+export async function searchReceitaCompaniesByEmail(email: string, limit: number): Promise<ReceitaEmpresaRow[]> {
+  const termo = email.trim().toLowerCase();
+  if (!termo) return [];
+
+  const { rows } = await receitaPool.query<ReceitaEmpresaRow>(
+    `
+      select distinct
+        e.cnpj_basico,
+        e.razao_social,
+        e.natureza_juridica,
+        e.qualificacao_responsavel,
+        e.capital_social::text,
+        e.porte,
+        true as tem_estabelecimento,
+        exists(select 1 from receita_socios s where s.cnpj_basico = e.cnpj_basico) as tem_socio
+      from receita_estabelecimentos est
+      join receita_empresas e on e.cnpj_basico = est.cnpj_basico
+      where coalesce(est.email_normalizado, lower(est.email)) = $1
+      order by e.razao_social asc
+      limit $2
+    `,
+    [termo, limit],
+  );
+
+  return rows;
+}
+
+export async function searchReceitaAddresses(q: string, limit: number): Promise<ReceitaContactSearchRow[]> {
+  const termo = q.trim().toLowerCase();
+  if (!termo) return [];
+
+  const { rows } = await receitaPool.query<ReceitaContactSearchRow>(
+    `
+      select
+        est.endereco_normalizado as valor,
+        count(distinct est.cnpj_basico)::int as total_empresas
+      from receita_estabelecimentos est
+      where coalesce(est.endereco_normalizado, '') <> ''
+        and lower(est.endereco_normalizado) like '%' || $1 || '%'
+      group by est.endereco_normalizado
+      order by total_empresas desc, est.endereco_normalizado asc
+      limit $2
+    `,
+    [termo, limit],
+  );
+
+  return rows;
+}
+
+export async function searchReceitaCompaniesByAddress(address: string, limit: number): Promise<ReceitaEmpresaRow[]> {
+  const termo = address.trim().toLowerCase();
+  if (!termo) return [];
+
+  const { rows } = await receitaPool.query<ReceitaEmpresaRow>(
+    `
+      select distinct
+        e.cnpj_basico,
+        e.razao_social,
+        e.natureza_juridica,
+        e.qualificacao_responsavel,
+        e.capital_social::text,
+        e.porte,
+        true as tem_estabelecimento,
+        exists(select 1 from receita_socios s where s.cnpj_basico = e.cnpj_basico) as tem_socio
+      from receita_estabelecimentos est
+      join receita_empresas e on e.cnpj_basico = est.cnpj_basico
+      where lower(est.endereco_normalizado) = $1
+      order by e.razao_social asc
+      limit $2
+    `,
+    [termo, limit],
+  );
+
+  return rows;
+}
+
+export async function findFirstReceitaEstabelecimentoByCnpjBasico(cnpjBasico: string): Promise<string | null> {
+  const { rows } = await receitaPool.query<{ cnpj: string }>(
+    `
+      select cnpj
+      from receita_estabelecimentos
+      where cnpj_basico = $1
+      order by cnpj_ordem asc
+      limit 1
+    `,
+    [cnpjBasico],
+  );
+
+  return rows[0]?.cnpj ?? null;
+}
+
 export async function listInvestigaveis(limit: number): Promise<ReceitaEmpresaRow[]> {
   const { rows } = await receitaPool.query<ReceitaEmpresaRow>(
     `

@@ -31,6 +31,11 @@ import {
   type ReceitaEstabelecimento,
 } from "./services/receita";
 import {
+  buscarInvestigativa,
+  type InvestigationSearchResult,
+  type InvestigationSearchType,
+} from "./services/investigationSearch";
+import {
   buscarLocal,
   calcularRelacionamentosLocais,
   type EmpresaRelacionadaLocal,
@@ -85,6 +90,12 @@ export default function App() {
     useState<InvestigationAvailability | null>(null);
   const [loadingInvestigacao, setLoadingInvestigacao] = useState(false);
   const [erroInvestigacao, setErroInvestigacao] = useState("");
+  const [buscaInvestigativa, setBuscaInvestigativa] = useState("");
+  const [tipoBuscaInvestigativa, setTipoBuscaInvestigativa] = useState<InvestigationSearchType>("auto");
+  const [resultadosInvestigativa, setResultadosInvestigativa] = useState<InvestigationSearchResult[]>([]);
+  const [loadingBuscaInvestigativa, setLoadingBuscaInvestigativa] = useState(false);
+  const [erroBuscaInvestigativa, setErroBuscaInvestigativa] = useState("");
+  const [buscaInvestigativaPesquisada, setBuscaInvestigativaPesquisada] = useState(false);
   const [historico, setHistorico] = useState<HistoricoItem[]>(() => {
     try {
       const salvo = localStorage.getItem(HISTORICO_KEY);
@@ -229,6 +240,74 @@ export default function App() {
 
   function onEnterReceita(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") pesquisarReceita();
+  }
+
+  async function pesquisarInvestigativa(
+    type: InvestigationSearchType = tipoBuscaInvestigativa,
+    termoOverride?: string,
+  ) {
+    try {
+      const termo = (termoOverride ?? buscaInvestigativa).trim();
+      setErroBuscaInvestigativa("");
+
+      if (termo.length < 2 && !termo.includes("@") && somenteNumeros(termo).length < 8) {
+        setResultadosInvestigativa([]);
+        setBuscaInvestigativaPesquisada(false);
+        throw new Error("Digite pelo menos 2 caracteres ou um CNPJ/telefone válido.");
+      }
+
+      setLoadingBuscaInvestigativa(true);
+      setTipoBuscaInvestigativa(type);
+      if (termoOverride) setBuscaInvestigativa(termoOverride);
+      const response = await buscarInvestigativa(termo, type, 20);
+      setResultadosInvestigativa(response.data);
+      setBuscaInvestigativaPesquisada(true);
+    } catch (error) {
+      setErroBuscaInvestigativa(error instanceof Error ? error.message : "Erro na busca investigativa.");
+    } finally {
+      setLoadingBuscaInvestigativa(false);
+    }
+  }
+
+  function onEnterInvestigativa(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") pesquisarInvestigativa("auto");
+  }
+
+  function empresaFromSearchResult(resultado: InvestigationSearchResult): ReceitaEmpresa {
+    return {
+      cnpjBasico: resultado.cnpjBasico || "",
+      razaoSocial: resultado.label,
+      naturezaJuridica: null,
+      qualificacaoResponsavel: null,
+      capitalSocial: null,
+      porte: null,
+      statusInvestigacao: resultado.investigationStatus ?? null,
+    };
+  }
+
+  async function abrirEmpresaInvestigativa(resultado: InvestigationSearchResult) {
+    if (!resultado.cnpjBasico) return;
+    await selecionarEmpresaReceita(empresaFromSearchResult(resultado));
+  }
+
+  async function investigarResultadoEmpresa(resultado: InvestigationSearchResult) {
+    if (!resultado.cnpjBasico) return;
+    const empresa = empresaFromSearchResult(resultado);
+    await selecionarEmpresaReceita(empresa);
+    try {
+      setErroInvestigacao("");
+      setLoadingInvestigacao(true);
+      const relatorio = await obterRelatorioInvestigacao(empresa.cnpjBasico);
+      setRelatorioInvestigacao(relatorio);
+    } catch (error) {
+      setErroInvestigacao(error instanceof Error ? error.message : "Erro ao gerar relatório de investigação.");
+    } finally {
+      setLoadingInvestigacao(false);
+    }
+  }
+
+  async function verEmpresasRelacionadasInvestigativa(resultado: InvestigationSearchResult) {
+    await pesquisarInvestigativa("company", resultado.label);
   }
 
   async function carregarAmostrasReceita() {
@@ -461,6 +540,62 @@ export default function App() {
             fallback entre provedores.
           </p>
         </header>
+
+        <section className="mb-6 rounded-3xl border border-cyan-500/20 bg-slate-900 p-5 shadow-xl">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-400">
+                Motor de Investigação
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-white">Busca Investigativa</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Comece por CNPJ, empresa, sócio, telefone, e-mail ou endereço na base local.
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:flex-row lg:max-w-3xl">
+              <input
+                value={buscaInvestigativa}
+                onChange={(e) => {
+                  setBuscaInvestigativa(e.target.value);
+                  setBuscaInvestigativaPesquisada(false);
+                  setErroBuscaInvestigativa("");
+                }}
+                onKeyDown={onEnterInvestigativa}
+                placeholder="Digite CNPJ, empresa, sócio, telefone, e-mail ou endereço"
+                className="flex-1 rounded-2xl border border-cyan-500/30 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-400"
+              />
+              <button
+                onClick={() => pesquisarInvestigativa("auto")}
+                disabled={loadingBuscaInvestigativa}
+                className="rounded-2xl bg-cyan-500 px-6 py-3 font-bold text-slate-950 hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-400"
+              >
+                {loadingBuscaInvestigativa ? "Buscando..." : "Buscar"}
+              </button>
+            </div>
+          </div>
+
+          {erroBuscaInvestigativa && (
+            <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+              {erroBuscaInvestigativa}
+            </div>
+          )}
+
+          {buscaInvestigativaPesquisada && resultadosInvestigativa.length === 0 && !loadingBuscaInvestigativa && (
+            <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-400">
+              Nenhum resultado encontrado na base local importada.
+            </div>
+          )}
+
+          {resultadosInvestigativa.length > 0 && (
+            <ResultadosBuscaInvestigativa
+              resultados={resultadosInvestigativa}
+              onAbrirEmpresa={abrirEmpresaInvestigativa}
+              onInvestigarEmpresa={investigarResultadoEmpresa}
+              onVerEmpresasRelacionadas={verEmpresasRelacionadasInvestigativa}
+              onConsultarCnpj={(cnpjCompleto) => consultarCnpj(cnpjCompleto)}
+            />
+          )}
+        </section>
 
         <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -1403,6 +1538,12 @@ function AchadosInvestigacao({ findings }: { findings: InvestigationReport["find
 
 function ResumoEvidenciaRelation({ relation }: { relation: InvestigationRelation }) {
   const evidence = relation.evidence;
+  const entityConfidence = relation.entityConfidence;
+  const showHomonymAlert =
+    relation.type === "same_partner" &&
+    entityConfidence &&
+    (entityConfidence.level === "LOW" || entityConfidence.level === "MEDIUM");
+
   return (
     <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -1412,11 +1553,28 @@ function ResumoEvidenciaRelation({ relation }: { relation: InvestigationRelation
         <span className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${confidenceBadgeClass(evidence.confidence)}`}>
           Confiança {evidence.confidence}
         </span>
+        {entityConfidence && (
+          <span className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${confidenceBadgeClass(entityConfidence.level)}`}>
+            Entidade {entityConfidence.level}
+          </span>
+        )}
       </div>
+      {showHomonymAlert && (
+        <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs font-medium text-amber-100">
+          Esta relação pode conter homônimos
+        </p>
+      )}
       <p className="mt-2 text-xs leading-5 text-slate-300">
         <span className="font-bold text-slate-100">{evidence.field}:</span> {evidence.value || "Não informado"}
       </p>
       <p className="mt-1 text-xs leading-5 text-slate-400">{evidence.explanation}</p>
+      {entityConfidence && entityConfidence.reasons.length > 0 && (
+        <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-slate-400">
+          {entityConfidence.reasons.map((reason, index) => (
+            <li key={`${reason}-${index}`}>{reason}</li>
+          ))}
+        </ul>
+      )}
       <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
         Fonte: {evidence.source}
       </p>
@@ -1446,6 +1604,102 @@ function confidenceBadgeClass(confidence: InvestigationRelation["evidence"]["con
   if (confidence === "HIGH") return "bg-red-500/20 text-red-200";
   if (confidence === "MEDIUM") return "bg-amber-500/20 text-amber-200";
   return "bg-cyan-500/10 text-cyan-200";
+}
+
+function ResultadosBuscaInvestigativa({
+  resultados,
+  onAbrirEmpresa,
+  onInvestigarEmpresa,
+  onVerEmpresasRelacionadas,
+  onConsultarCnpj,
+}: {
+  resultados: InvestigationSearchResult[];
+  onAbrirEmpresa: (resultado: InvestigationSearchResult) => void;
+  onInvestigarEmpresa: (resultado: InvestigationSearchResult) => void;
+  onVerEmpresasRelacionadas: (resultado: InvestigationSearchResult) => void;
+  onConsultarCnpj: (cnpjCompleto: string) => void;
+}) {
+  const grupos = [
+    { key: "company" as const, titulo: "Empresas" },
+    { key: "partner" as const, titulo: "Sócios" },
+    { key: "address" as const, titulo: "Endereços" },
+    { key: "phone" as const, titulo: "Telefones" },
+    { key: "email" as const, titulo: "E-mails" },
+  ];
+
+  return (
+    <div className="mt-5 space-y-5">
+      {grupos.map(({ key, titulo }) => {
+        const itens = resultados.filter((item) => item.type === key);
+        if (itens.length === 0) return null;
+
+        return (
+          <div key={key}>
+            <p className="text-xs font-bold uppercase tracking-widest text-cyan-300">{titulo}</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {itens.map((item) => (
+                <div key={item.id} className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                  <p className="font-bold text-white">{item.label}</p>
+                  <p className="mt-1 text-xs text-slate-400">{item.subtitle}</p>
+                  {item.evidenceHint && (
+                    <p className="mt-2 text-xs leading-5 text-cyan-200/80">{item.evidenceHint}</p>
+                  )}
+                  {item.investigationStatus && (
+                    <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      Status {item.investigationStatus}
+                    </p>
+                  )}
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {item.type === "company" && item.cnpjBasico && (
+                      <>
+                        <button
+                          onClick={() => onInvestigarEmpresa(item)}
+                          className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/20"
+                        >
+                          Investigar vínculos
+                        </button>
+                        <button
+                          onClick={() => onAbrirEmpresa(item)}
+                          className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
+                        >
+                          Abrir empresa
+                        </button>
+                        {item.cnpjCompleto && (
+                          <button
+                            onClick={() => onConsultarCnpj(item.cnpjCompleto!)}
+                            className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
+                          >
+                            Consultar CNPJ
+                          </button>
+                        )}
+                      </>
+                    )}
+                    {item.type === "partner" && (
+                      <button
+                        onClick={() => onVerEmpresasRelacionadas(item)}
+                        className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/20"
+                      >
+                        Ver empresas deste sócio
+                      </button>
+                    )}
+                    {(item.type === "phone" || item.type === "email" || item.type === "address") && (
+                      <button
+                        onClick={() => onVerEmpresasRelacionadas(item)}
+                        className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/20"
+                      >
+                        Ver empresas relacionadas
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function GrafoInvestigacao({
@@ -1512,6 +1766,16 @@ function GrafoInvestigacao({
       capitalSocial: null,
       porte: null,
     };
+  }
+
+  function relationDaAresta(edge: InvestigationGraphEdge): InvestigationRelation | null {
+    const targetId = `company:${targetCompany.cnpjBasico}`;
+    const relatedNodeId = edge.from === targetId ? edge.to : edge.from;
+    if (relatedNodeId.startsWith("company:")) {
+      const cnpjBasico = relatedNodeId.replace("company:", "");
+      return relations.find((item) => item.company.cnpjBasico === cnpjBasico && item.type === edge.relationType) ?? null;
+    }
+    return relations.find((item) => item.type === edge.relationType && item.reason === edge.label) ?? null;
   }
 
   return (
@@ -1671,6 +1935,36 @@ function GrafoInvestigacao({
                   Confiança {arestaAtiva.evidence.confidence}
                 </span>
               </div>
+              {(() => {
+                const relacao = relationDaAresta(arestaAtiva);
+                const entityConfidence = relacao?.entityConfidence;
+                const showHomonymAlert =
+                  arestaAtiva.relationType === "same_partner" &&
+                  entityConfidence &&
+                  (entityConfidence.level === "LOW" || entityConfidence.level === "MEDIUM");
+
+                return (
+                  <>
+                    {entityConfidence && (
+                      <span className={`mt-2 inline-block rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${confidenceBadgeClass(entityConfidence.level)}`}>
+                        Entidade {entityConfidence.level}
+                      </span>
+                    )}
+                    {showHomonymAlert && (
+                      <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs font-medium text-amber-100">
+                        Esta relação pode conter homônimos
+                      </p>
+                    )}
+                    {entityConfidence && entityConfidence.reasons.length > 0 && (
+                      <ul className="mt-3 list-disc space-y-1 pl-4 text-xs leading-5 text-slate-400">
+                        {entityConfidence.reasons.map((reason, index) => (
+                          <li key={`${reason}-${index}`}>{reason}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                );
+              })()}
               <p className="mt-3 text-sm font-bold text-white">{arestaAtiva.relationType}</p>
               <p className="mt-1 text-xs text-slate-400">{arestaAtiva.label}</p>
 

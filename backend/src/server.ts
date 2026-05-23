@@ -4,6 +4,7 @@ import { env } from "./config/env.js";
 import { companiesRoutes } from "./routes/companies.routes.js";
 import { investigationRoutes } from "./routes/investigation.routes.js";
 import { receitaRoutes } from "./routes/receita.routes.js";
+import { searchRoutes } from "./routes/search.routes.js";
 
 const app = Fastify({
   logger: true,
@@ -28,6 +29,7 @@ app.get("/health", async () => ({
 await app.register(companiesRoutes);
 await app.register(receitaRoutes);
 await app.register(investigationRoutes);
+await app.register(searchRoutes);
 
 await app.listen({
   port: env.PORT,

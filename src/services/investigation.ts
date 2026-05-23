@@ -13,6 +13,11 @@ export type InvestigationRelationEvidence = {
 
 export type EvidenceClassification = "DECLARADO" | "INFERIDO" | "VALIDADO" | "COMPROVADO";
 
+export type EntityConfidence = {
+  level: "LOW" | "MEDIUM" | "HIGH";
+  reasons: string[];
+};
+
 export type InvestigationRelation = {
   type: "same_partner" | "same_address" | "same_root" | "same_phone" | "same_email";
   score: number;
@@ -20,6 +25,7 @@ export type InvestigationRelation = {
   company: ReceitaEmpresa;
   classification: EvidenceClassification;
   evidence: InvestigationRelationEvidence;
+  entityConfidence?: EntityConfidence;
 };
 
 export type InvestigationGraphNode = {
@@ -71,6 +77,7 @@ export type InvestigationReport = {
       documento: string | null;
       qualificacao: string | null;
       dataEntrada: string | null;
+      faixaEtaria: string | null;
     }>;
   };
   summary: {

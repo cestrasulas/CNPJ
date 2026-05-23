@@ -28,6 +28,14 @@ type Socio = {
   documento: string | null;
   qualificacao: string | null;
   dataEntrada: string | null;
+  faixaEtaria: string | null;
+};
+
+type EntityConfidenceLevel = "LOW" | "MEDIUM" | "HIGH";
+
+type EntityConfidence = {
+  level: EntityConfidenceLevel;
+  reasons: string[];
 };
 
 type RelationEvidence = {
@@ -47,6 +55,7 @@ type Relation = {
   company: Empresa;
   classification: EvidenceClassification;
   evidence: RelationEvidence;
+  entityConfidence?: EntityConfidence;
 };
 
 type FindingType =
@@ -143,7 +152,7 @@ export async function buildInvestigationReport(cnpjBasico: string) {
   const socios = await listSocios(cnpjBasico);
   const relations = limitRelations([
     ...buildBranchRelations(target, estabelecimentos),
-    ...(await findSamePartnerRelations(cnpjBasico, socios)),
+    ...(await findSamePartnerRelations(cnpjBasico, socios, estabelecimentos)),
     ...(await findSameAddressRelations(cnpjBasico, estabelecimentos)),
     ...(await findSameContactRelations(cnpjBasico, estabelecimentos, "phone")),
     ...(await findSameContactRelations(cnpjBasico, estabelecimentos, "email")),
@@ -254,7 +263,7 @@ async function listEstabelecimentos(cnpjBasico: string): Promise<Estabelecimento
 async function listSocios(cnpjBasico: string): Promise<Socio[]> {
   const { rows } = await receitaPool.query(
     `
-      select nome_socio, cnpj_cpf_socio, qualificacao_socio, data_entrada_sociedade::text
+      select nome_socio, cnpj_cpf_socio, qualificacao_socio, data_entrada_sociedade::text, faixa_etaria
       from receita_socios
       where cnpj_basico = $1
       limit 50
@@ -267,6 +276,7 @@ async function listSocios(cnpjBasico: string): Promise<Socio[]> {
     documento: row.cnpj_cpf_socio,
     qualificacao: row.qualificacao_socio,
     dataEntrada: row.data_entrada_sociedade,
+    faixaEtaria: row.faixa_etaria,
   }));
 }
 
@@ -289,14 +299,24 @@ function buildBranchRelations(target: Empresa, estabelecimentos: Estabelecimento
   ];
 }
 
-async function findSamePartnerRelations(cnpjBasico: string, socios: Socio[]): Promise<Relation[]> {
-  const keys = socios.map((socio) => socio.documento || socio.nome).filter(Boolean);
-  if (keys.length === 0) return [];
+async function findSamePartnerRelations(
+  cnpjBasico: string,
+  socios: Socio[],
+  estabelecimentos: Estabelecimento[],
+): Promise<Relation[]> {
+  const documents = [...new Set(socios.map((socio) => socio.documento).filter(Boolean))] as string[];
+  const names = [...new Set(socios.map((socio) => socio.nome).filter(Boolean))] as string[];
+  if (documents.length === 0 && names.length === 0) return [];
 
   const { rows } = await receitaPool.query(
     `
       select distinct e.cnpj_basico, e.razao_social, e.natureza_juridica, e.qualificacao_responsavel,
-             e.capital_social::text, e.porte, est.situacao_cadastral, s.nome_socio
+             e.capital_social::text, e.porte, est.situacao_cadastral, s.nome_socio, s.cnpj_cpf_socio,
+             s.faixa_etaria,
+             case
+               when s.cnpj_cpf_socio = any($2::text[]) then 'document'
+               else 'name'
+             end as match_kind
       from receita_socios s
       join receita_empresas e on e.cnpj_basico = s.cnpj_basico
       left join lateral (
@@ -307,24 +327,185 @@ async function findSamePartnerRelations(cnpjBasico: string, socios: Socio[]): Pr
         limit 1
       ) est on true
       where s.cnpj_basico <> $1
-        and (s.cnpj_cpf_socio = any($2::text[]) or s.nome_socio = any($2::text[]))
+        and (
+          (cardinality($2::text[]) > 0 and s.cnpj_cpf_socio = any($2::text[]))
+          or (cardinality($3::text[]) > 0 and s.nome_socio = any($3::text[]))
+        )
       limit 20
     `,
-    [cnpjBasico, keys],
+    [cnpjBasico, documents, names],
   );
 
-  return rows.map((row) => ({
-    type: "same_partner",
-    score: 50,
-    reason: `Sócio em comum: ${row.nome_socio || "não identificado"}.`,
-    company: mapEmpresaRow(row),
-    classification: "DECLARADO",
-    evidence: buildRelationEvidence(
-      "same_partner",
-      String(row.nome_socio || "não identificado"),
-      "Empresas compartilham o mesmo sócio/administrador na base local.",
-    ),
-  }));
+  if (rows.length === 0) return [];
+
+  const relatedCnpjs = [...new Set(rows.map((row) => String(row.cnpj_basico)))];
+  const contactSignals = await fetchCompanyContactSignals(relatedCnpjs);
+  const targetSignals = buildContactSignals(estabelecimentos);
+  const socioByDocument = new Map(socios.filter((socio) => socio.documento).map((socio) => [socio.documento!, socio]));
+  const socioByName = new Map(socios.filter((socio) => socio.nome).map((socio) => [socio.nome!, socio]));
+
+  return rows.map((row) => {
+    const partnerName = String(row.nome_socio || "não identificado");
+    const matchKind = row.match_kind === "document" ? "document" : "name";
+    const targetSocio =
+      matchKind === "document" && row.cnpj_cpf_socio
+        ? socioByDocument.get(String(row.cnpj_cpf_socio)) ?? null
+        : socioByName.get(partnerName) ?? null;
+    const relatedSignals = contactSignals.get(String(row.cnpj_basico)) ?? emptyContactSignals();
+    const sharesPhone = hasContactOverlap(targetSignals.phones, relatedSignals.phones);
+    const sharesAddress = hasContactOverlap(targetSignals.addresses, relatedSignals.addresses);
+    const sharesEmail = hasContactOverlap(targetSignals.emails, relatedSignals.emails);
+
+    const entityConfidence = buildEntityConfidence({
+      matchKind,
+      partnerName,
+      targetSocio,
+      relatedFaixaEtaria: typeof row.faixa_etaria === "string" ? row.faixa_etaria : null,
+      sharesPhone,
+      sharesAddress,
+      sharesEmail,
+    });
+
+    const classification: EvidenceClassification = matchKind === "document" ? "DECLARADO" : "INFERIDO";
+    const evidence = buildPartnerRelationEvidence(partnerName, entityConfidence);
+    const score = partnerRelationScore(entityConfidence);
+
+    return {
+      type: "same_partner",
+      score,
+      reason: `Possível correspondência de sócio: ${partnerName}.`,
+      company: mapEmpresaRow(row),
+      classification,
+      evidence,
+      entityConfidence,
+    };
+  });
+}
+
+type ContactSignals = {
+  phones: Set<string>;
+  addresses: Set<string>;
+  emails: Set<string>;
+};
+
+function emptyContactSignals(): ContactSignals {
+  return { phones: new Set(), addresses: new Set(), emails: new Set() };
+}
+
+function buildContactSignals(estabelecimentos: Estabelecimento[]): ContactSignals {
+  const signals = emptyContactSignals();
+  for (const est of estabelecimentos) {
+    if (est.telefone) signals.phones.add(est.telefone);
+    if (est.email) signals.emails.add(est.email);
+    if (est.enderecoNormalizado) signals.addresses.add(est.enderecoNormalizado);
+  }
+  return signals;
+}
+
+async function fetchCompanyContactSignals(cnpjBasicos: string[]): Promise<Map<string, ContactSignals>> {
+  if (cnpjBasicos.length === 0) return new Map();
+
+  const { rows } = await receitaPool.query(
+    `
+      select cnpj_basico, telefone1_normalizado, telefone2_normalizado, email_normalizado, endereco_normalizado
+      from receita_estabelecimentos
+      where cnpj_basico = any($1::text[])
+    `,
+    [cnpjBasicos],
+  );
+
+  const map = new Map<string, ContactSignals>();
+  for (const row of rows) {
+    const key = String(row.cnpj_basico);
+    const signals = map.get(key) ?? emptyContactSignals();
+    if (row.telefone1_normalizado) signals.phones.add(String(row.telefone1_normalizado));
+    if (row.telefone2_normalizado) signals.phones.add(String(row.telefone2_normalizado));
+    if (row.email_normalizado) signals.emails.add(String(row.email_normalizado));
+    if (row.endereco_normalizado) signals.addresses.add(String(row.endereco_normalizado));
+    map.set(key, signals);
+  }
+  return map;
+}
+
+function hasContactOverlap(left: Set<string>, right: Set<string>): boolean {
+  for (const value of left) {
+    if (right.has(value)) return true;
+  }
+  return false;
+}
+
+type EntityMatchContext = {
+  matchKind: "document" | "name";
+  partnerName: string;
+  targetSocio: Socio | null;
+  relatedFaixaEtaria: string | null;
+  sharesPhone: boolean;
+  sharesAddress: boolean;
+  sharesEmail: boolean;
+};
+
+function buildEntityConfidence(context: EntityMatchContext): EntityConfidence {
+  const reasons: string[] = [];
+
+  if (context.matchKind === "document" && context.targetSocio?.documento) {
+    return {
+      level: "HIGH",
+      reasons: ["Mesmo identificador cadastral (CPF/CNPJ) declarado na Receita."],
+    };
+  }
+
+  reasons.push(`Correspondência apenas por nome cadastral: ${context.partnerName}.`);
+
+  const sameAgeRange = Boolean(
+    context.targetSocio?.faixaEtaria &&
+      context.relatedFaixaEtaria &&
+      context.targetSocio.faixaEtaria === context.relatedFaixaEtaria,
+  );
+
+  if (sameAgeRange) reasons.push("Mesma faixa etária declarada na Receita.");
+  if (context.sharesPhone) reasons.push("Empresas compartilham telefone cadastral.");
+  if (context.sharesAddress) reasons.push("Empresas compartilham endereço cadastral.");
+  if (context.sharesEmail) reasons.push("Empresas compartilham e-mail cadastral.");
+
+  const supportingEvidences = [
+    sameAgeRange,
+    context.sharesPhone,
+    context.sharesAddress,
+    context.sharesEmail,
+  ].filter(Boolean).length;
+
+  if (context.sharesPhone || context.sharesAddress) {
+    return { level: "HIGH", reasons };
+  }
+
+  if (supportingEvidences >= 2) {
+    reasons.push("Múltiplas evidências cadastrais convergentes além do nome.");
+    return { level: "HIGH", reasons };
+  }
+
+  if (sameAgeRange) {
+    return { level: "MEDIUM", reasons };
+  }
+
+  return { level: "LOW", reasons };
+}
+
+function partnerRelationScore(entityConfidence: EntityConfidence): number {
+  if (entityConfidence.level === "HIGH") return 50;
+  if (entityConfidence.level === "MEDIUM") return 35;
+  return 20;
+}
+
+function buildPartnerRelationEvidence(partnerName: string, entityConfidence: EntityConfidence): RelationEvidence {
+  const base = buildRelationEvidence(
+    "same_partner",
+    partnerName,
+    "Nome cadastral aparece no quadro societário de ambas as empresas; trata-se de possível correspondência, não de identidade comprovada.",
+  );
+  return {
+    ...base,
+    confidence: entityConfidence.level,
+  };
 }
 
 async function findSameAddressRelations(cnpjBasico: string, estabelecimentos: Estabelecimento[]): Promise<Relation[]> {
@@ -448,10 +629,14 @@ function buildKeyFindings(
 
   const partnerLinks = relations.filter((r) => r.type === "same_partner");
   if (partnerLinks.length > 0) {
-    const exemplos = [...new Set(partnerLinks.map((r) => r.reason.replace("Sócio em comum: ", "").replace(".", "")))]
+    const exemplos = [
+      ...new Set(partnerLinks.map((r) => r.reason.replace("Possível correspondência de sócio: ", "").replace(".", ""))),
+    ]
       .slice(0, 2)
       .join(", ");
-    findings.push(`${partnerLinks.length} empresa(s) compartilham sócio em comum${exemplos ? ` (${exemplos})` : ""}.`);
+    findings.push(
+      `${partnerLinks.length} empresa(s) com possível correspondência de sócio${exemplos ? ` (${exemplos})` : ""}.`,
+    );
   }
 
   const phoneLinks = relations.filter((r) => r.type === "same_phone");
@@ -503,16 +688,27 @@ function buildFindings(
   const capital = parseCapitalSocial(target.capitalSocial);
 
   if (partnerRelations.length > 0) {
+    const lowConfidence = partnerRelations.filter((relation) => relation.entityConfidence?.level === "LOW").length;
     findings.push({
       type: "partner_network",
       severity: partnerRelations.length >= 5 ? "HIGH" : "MEDIUM",
-      title: "Sócio conecta múltiplas empresas",
+      title: "Possível correspondência de sócio entre empresas",
       description:
-        "Foram encontradas empresas relacionadas por sócio em comum, um indício relevante para mapear grupo econômico ou atuação coordenada.",
+        "Foram encontradas empresas com nome cadastral coincidente no quadro societário. Trata-se de possível correspondência — homônimos não estão descartados sem evidências adicionais.",
       evidence: [
-        `${partnerRelations.length} empresa(s) relacionada(s) por sócio.`,
+        `${partnerRelations.length} empresa(s) com possível correspondência de sócio.`,
+        ...(lowConfidence > 0
+          ? [`${lowConfidence} relação(ões) com confiança de entidade baixa (risco de homônimo).`]
+          : []),
         ...uniqueEvidence(partnerRelations.map((relation) => relation.reason)),
         ...relationEvidenceLines(partnerRelations),
+        ...partnerRelations
+          .filter((relation) => relation.entityConfidence)
+          .slice(0, 3)
+          .map(
+            (relation) =>
+              `Confiança de entidade ${relation.entityConfidence!.level}: ${relation.entityConfidence!.reasons.join(" ")}`,
+          ),
         ...socios.slice(0, 3).map((socio) => `Sócio da investigada: ${socio.nome || "não identificado"}`),
       ],
     });
@@ -651,7 +847,7 @@ function buildEvidenceStrengthReasons(relations: Relation[]): string[] {
 
   if (declared > 0) reasons.push(`${declared} evidência(s) declarada(s) em fonte cadastral/oficial.`);
   if (inferred > 0) reasons.push(`${inferred} evidência(s) inferida(s) por regra do sistema.`);
-  if (partner > 0) reasons.push(`${partner} vínculo(s) por sócio/administrador declarado.`);
+  if (partner > 0) reasons.push(`${partner} possível(is) correspondência(s) de sócio/administrador.`);
   if (phone > 0) reasons.push(`${phone} vínculo(s) por telefone cadastral compartilhado.`);
   if (email > 0) reasons.push(`${email} vínculo(s) por e-mail cadastral compartilhado.`);
   if (address > 0) reasons.push(`${address} vínculo(s) por endereço cadastral compartilhado.`);
@@ -666,6 +862,7 @@ function defaultEvidenceLimitations(): string[] {
     "ausência de percentuais societários",
     "ausência de atos societários",
     "ausência de UBO formal",
+    "correspondência por nome pode envolver homônimos",
   ];
 }
 
@@ -970,6 +1167,7 @@ function renderRelationsTable(relations: Relation[]): string {
         <th>Empresa relacionada</th>
         <th>Motivo</th>
         <th>Classificação</th>
+        <th>Confiança de entidade</th>
         <th>Evidência</th>
         <th>Fonte</th>
         <th>Confiança</th>
@@ -983,11 +1181,15 @@ function renderRelationsTable(relations: Relation[]): string {
 
 function renderRelationRow(relation: Relation): string {
   const evidence = relation.evidence;
+  const entityBlock = relation.entityConfidence
+    ? `<span class="badge ${severityClass(relation.entityConfidence.level)}">${escapeHtml(relation.entityConfidence.level)}</span><br>${list(relation.entityConfidence.reasons)}`
+    : "<span class=\"muted\">—</span>";
   return `<tr>
     <td>${escapeHtml(relation.type)}</td>
     <td>${escapeHtml(relation.company.razaoSocial || relation.company.cnpjBasico)}</td>
     <td>${escapeHtml(relation.reason)}</td>
     <td>${escapeHtml(relation.classification)}</td>
+    <td>${entityBlock}</td>
     <td><strong>${escapeHtml(evidence.field)}:</strong> ${escapeHtml(evidence.value)}<br>${escapeHtml(evidence.explanation)}</td>
     <td>${escapeHtml(evidence.source)}<br><span class="muted">${escapeHtml(evidence.sourceType)}${evidence.collectedAt ? ` - ${escapeHtml(evidence.collectedAt)}` : ""}</span></td>
     <td>${escapeHtml(evidence.confidence)}</td>
