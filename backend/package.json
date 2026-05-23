@@ -19,7 +19,8 @@
     "import:socios": "tsx src/importers/receita/import-socios.ts",
     "import:municipios": "tsx src/importers/receita/import-municipios.ts",
     "coverage:report": "tsx src/scripts/coverage-report.ts",
-    "import:incremental": "tsx src/scripts/import-incremental.ts"
+    "import:incremental": "tsx src/scripts/import-incremental.ts",
+    "sync:project-state": "tsx src/scripts/sync-project-state.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",

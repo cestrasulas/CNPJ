@@ -420,6 +420,7 @@ Validação recente:
 - Estabelecimentos: 100.000 | Sócios: 1.187.000
 - Comando: `cd backend && npm run import:incremental -- --dir=/Users/cris/Downloads/2026-05 --from=1 --to=9`
 - Relatório: `npm run coverage:report` → `backend/reports/coverage-report.json`
+- Sincronizar blocos do processo legado (`~/PROJECT_STATE.md`): `cd backend && npm run sync:project-state`
 
 #### Importação: Estabelecimentos1.zip
 
