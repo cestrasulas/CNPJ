@@ -299,14 +299,13 @@ CNPJs úteis para demo:
 
 ## Prioridade Imediata (próxima decisão de produto)
 
-1. **Alinhar git** — commitar PDF-002a + docs (working tree pendente) ou reverter.
-2. **Validar demo ponta a ponta** — GREAT WALL `62909728` com backend + frontend + Docker.
-3. **Escolher próxima série:**
+1. **Validar demo ponta a ponta** — GREAT WALL `62909728` com backend + frontend + Docker.
+2. **Escolher próxima série:**
    - **Dados:** alinhar amostra Receita (mesma partição ou CNPJs demo) **ou**
    - **Produto:** grupo econômico candidato + força agregada **ou**
    - **Integração:** Serpro / CVM / DataJud (desbloquear backlog) **ou**
    - **Engenharia:** fatiar `App.tsx` sem mudar comportamento.
-4. Push dos 12 commits locais para `origin/main` (quando desejado).
+3. Push para `origin/main` se houver commits locais à frente do remoto.
 
 ## Restrições
 

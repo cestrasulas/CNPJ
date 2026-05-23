@@ -6,7 +6,7 @@ Backlog priorizado para execução **uma tarefa por vez** no modo autopilot (`AG
 
 Agentes: pegar sempre a **primeira tarefa `PENDENTE`** da lista (topo = maior prioridade).
 
-**Estado em 2026-05-23:** nenhuma tarefa `PENDENTE` desbloqueada. PDF-002a implementada no working tree (ver `PROJECT_STATE.md` — sincronizar git antes de novo autopilot). Próximo trabalho exige nova tarefa no backlog ou desbloqueio explícito (PDF-002, SR-*, CVM-002, DJ-002).
+**Estado em 2026-05-23:** nenhuma tarefa `PENDENTE` desbloqueada. PDF-002a commitada (`6f453fd`). Próximo trabalho exige nova tarefa no backlog ou desbloqueio explícito (PDF-002, SR-*, CVM-002, DJ-002).
 
 ---
 

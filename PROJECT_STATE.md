@@ -21,7 +21,7 @@ Não existe `ETAPAS.md` — a série Etapas 1–3 vive só no histórico de conv
 |-------|-----------------|------------------------|
 | **Etapas 1–3** | Busca local, dados adicionais, comparação | Encerrada; sem ETAPA 4 formal |
 | **Motor + Infra** | Investigação, grafo, dossiê, busca `/api/search` | Grupo econômico candidato ou dados |
-| **Autopilot** | 30 tarefas desbloqueadas (incl. MO-003, PDF-002a em código) | 5 bloqueadas ou nova tarefa no backlog |
+| **Autopilot** | 30 tarefas desbloqueadas (incl. MO-003, PDF-002a) | 5 bloqueadas ou nova tarefa no backlog |
 
 ## Git e working tree
 
@@ -29,10 +29,10 @@ Não existe `ETAPAS.md` — a série Etapas 1–3 vive só no histórico de conv
 |------|--------|
 | Branch | `main` |
 | Ahead of `origin/main` | **12 commits** (autopilot MO/WS/RB/ER…) |
-| Último commit | `fb0aa18` — MO-003 UI monitoramento |
-| **Não commitado** | PDF-002a (print/PDF navegador) + atualizações de docs/código relacionadas |
+| Último commit | `6f453fd` — PDF-002a navegador + atualização de docs de registro |
+| Working tree | Limpo |
 
-Ação recomendada antes de novo desenvolvimento: **commit ou revert** do bloco PDF-002a para alinhar git ↔ docs.
+Commits locais MO/autopilot anteriores a `6f453fd` já incluídos na linha `main` (sincronizar com `origin` via push quando desejado).
 
 ## Modo Autopilot (agentes)
 
@@ -356,7 +356,7 @@ Validação recente:
 - Força das evidências por **grupo econômico candidato**
 - **VALIDADO / COMPROVADO** em escala (Serpro / documentos)
 - **Serpro**, **CVM**, **DataJud** (integração — ver backlog bloqueado)
-- **PDF server-side** (`dossier.pdf`) — PDF-002 bloqueado; PDF-002a navegador implementado (pendente commit)
+- **PDF server-side** (`dossier.pdf`) — PDF-002 bloqueado; PDF-002a navegador commitado em `6f453fd`
 - **Cobertura Receita STRONG** — amostra `*0.zip` com baixa interseção entre tabelas
 - **`App.tsx` monolítico** — refatoração incremental futura
 - **RBAC por papéis** — só spike + middleware hoje
@@ -375,10 +375,9 @@ Validação recente:
 
 ## Prioridade Imediata (pós-atualização de docs)
 
-1. Commit ou revert PDF-002a + docs.
-2. Smoke test demo: `npm run dev` (front) + `cd backend && npm run dev` + GREAT WALL `62909728`.
-3. Decidir próxima série (dados vs produto vs integração vs refactor UI).
-4. Opcional: `git push` dos 12 commits locais.
+1. Smoke test demo: `npm run dev` (front) + `cd backend && npm run dev` + GREAT WALL `62909728`.
+2. Decidir próxima série (dados vs produto vs integração vs refactor UI).
+3. Opcional: `git push` se `main` estiver à frente de `origin/main`.
 
 ## Restrições Atuais
 
