@@ -7,11 +7,18 @@ Criado em 2026-05-22:
 - `AGENT_AUTOPILOT.md` — loop de trabalho etapa a etapa, permissões operacionais e limites
 - `AGENT_BACKLOG.md` — backlog priorizado com tarefas pequenas, critérios de aceite e validações
 
-Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **WS-002**.
+Agentes devem ler estes arquivos junto com `CLAUDE.md` e `PROJECT_HANDOFF.md`. Próxima tarefa pendente no backlog: **RB-002**.
 
 ---
 
 ## Histórico recente
+
+### 2026-05-23 — WS-002 / WS-003 Workspace casos
+
+- **WS-002:** API CRUD mínima já entregue em WS-001 — validada (POST/GET casos + entidades)
+- **WS-003:** Botão **Salvar como caso** no relatório de investigação; feedback sucesso/erro; lista na seção Casos
+- Helper `salvarInvestigacaoComoCaso` em `src/services/cases.ts`
+- Validações: frontend typecheck/build OK
 
 ### 2026-05-23 — WS-001 Investigation Case
 
@@ -273,7 +280,7 @@ Validação recente:
 - Dossiê HTML v2 com evidências agrupadas — **concluído (DO-001/002)**
 - Grafo: expansão por profundidade — **concluído (GR-002/003)**
 - Exportação PDF do dossiê — **bloqueado (PDF-002)**
-- Workspace de casos — **WS-001 concluído; WS-002 pendente**
+- Workspace de casos — **WS-001 a WS-003 concluídos; próximo RB-002**
 - Força das evidências por grupo econômico candidato
 - Camada Serpro opcional sob demanda
 - CVM e DataJud como fontes abertas complementares

@@ -34,6 +34,7 @@ Agentes: pegar sempre a **primeira tarefa `PENDENTE`** da lista (topo = maior pr
 | CVM-001 | Spike fontes CVM | CONCLUÍDA |
 | DJ-001 | Spike DataJud | CONCLUÍDA |
 | WS-001 | Modelo investigation_case + rotas CRUD mínimas + UI Casos | CONCLUÍDA |
+| WS-002 | API CRUD mínima de casos | CONCLUÍDA |
 
 ---
 
@@ -640,9 +641,11 @@ cd backend && npm run typecheck
 
 ### WS-002 — API CRUD mínima de casos
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** `POST/GET /api/cases` listar e criar casos de investigação.
+
+**Nota:** Entregue junto com WS-001 (`cases.routes.ts`: POST/GET list/detail + POST entities).
 
 **Arquivos prováveis:**
 - `backend/src/routes/cases.routes.ts`
@@ -669,7 +672,7 @@ curl -s -X POST http://127.0.0.1:3001/api/cases -H 'Content-Type: application/js
 
 ### WS-003 — UI: salvar investigação como caso
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Botão na tela de investigação persiste caso via API.
 
