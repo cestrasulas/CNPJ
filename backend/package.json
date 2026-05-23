@@ -12,6 +12,8 @@
     "db:migrate:receita": "tsx src/importers/receita/migrate-receita.ts",
     "db:migrate:cases": "tsx src/migrate-cases.ts",
     "db:migrate:watch": "tsx src/migrate-watch.ts",
+    "db:migrate:watch-diff": "tsx src/migrate-watch-diff.ts",
+    "watch:diff": "tsx src/jobs/watchDiff.job.ts",
     "import:empresas": "tsx src/importers/receita/import-empresas.ts",
     "import:estabelecimentos": "tsx src/importers/receita/import-estabelecimentos.ts",
     "import:socios": "tsx src/importers/receita/import-socios.ts",

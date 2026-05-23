@@ -34,6 +34,35 @@ export async function createInvestigationWatch(input: {
   return rows[0];
 }
 
+export async function findInvestigationWatchByCnpjBasico(cnpjBasico: string): Promise<InvestigationWatchRow | null> {
+  const { rows } = await receitaPool.query<InvestigationWatchRow>(
+    `
+      select
+        id,
+        cnpj_basico,
+        label,
+        notes,
+        last_checked_at::text,
+        created_at::text,
+        updated_at::text
+      from investigation_watch
+      where cnpj_basico = $1
+    `,
+    [cnpjBasico],
+  );
+
+  return rows[0] ?? null;
+}
+
+export async function listInvestigationWatchesByCnpjBasico(cnpjBasico?: string): Promise<InvestigationWatchRow[]> {
+  if (cnpjBasico) {
+    const watch = await findInvestigationWatchByCnpjBasico(cnpjBasico);
+    return watch ? [watch] : [];
+  }
+
+  return listInvestigationWatches();
+}
+
 export async function listInvestigationWatches(): Promise<InvestigationWatchRow[]> {
   const { rows } = await receitaPool.query<InvestigationWatchRow>(
     `

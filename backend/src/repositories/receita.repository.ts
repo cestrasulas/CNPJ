@@ -480,6 +480,30 @@ export async function listReceitaEstabelecimentosByCnpjBasico(
   return rows;
 }
 
+export type ReceitaSocioRow = {
+  nome_socio: string | null;
+  cnpj_cpf_socio: string | null;
+  qualificacao_socio: string | null;
+};
+
+export async function listReceitaSociosByCnpjBasico(
+  cnpjBasico: string,
+  limit = 50,
+): Promise<ReceitaSocioRow[]> {
+  const { rows } = await receitaPool.query<ReceitaSocioRow>(
+    `
+      select nome_socio, cnpj_cpf_socio, qualificacao_socio
+      from receita_socios
+      where cnpj_basico = $1
+      order by nome_socio asc
+      limit $2
+    `,
+    [cnpjBasico, limit],
+  );
+
+  return rows;
+}
+
 export async function sampleReceitaEstabelecimentos(limit: number): Promise<ReceitaEstabelecimentoSampleRow[]> {
   const { rows } = await receitaPool.query<ReceitaEstabelecimentoSampleRow>(
     `

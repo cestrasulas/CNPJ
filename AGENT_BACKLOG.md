@@ -38,6 +38,7 @@ Agentes: pegar sempre a **primeira tarefa `PENDENTE`** da lista (topo = maior pr
 | WS-003 | UI salvar investigação como caso | CONCLUÍDA |
 | RB-002 | Middleware auth backend (rotas protegidas) | CONCLUÍDA |
 | MO-001 | Modelo investigation_watch + API CRUD | CONCLUÍDA |
+| MO-002 | Job diff sócios/contatos | CONCLUÍDA |
 
 ---
 
@@ -773,9 +774,11 @@ curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/cases
 
 ### MO-002 — Job diff: detectar mudanças em sócios/contatos
 
-**Status:** PENDENTE
+**Status:** CONCLUÍDA
 
 **Objetivo:** Script/cron compara snapshot anterior vs investigação atual; gera evento candidato.
+
+**Entregue:** `npm run watch:diff -- --cnpj=62909728`; snapshots + eventos em PostgreSQL local.
 
 **Arquivos prováveis:**
 - `backend/src/jobs/watchDiff.job.ts`
