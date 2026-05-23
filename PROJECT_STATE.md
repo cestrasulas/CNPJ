@@ -1,6 +1,6 @@
 # Estado Atual do Projeto CNPJ — 2026-05-23
 
-Última avaliação técnica: **2026-05-23** (typecheck/build OK; Postgres Docker OK; backend não estava rodando no momento do smoke test).
+Última avaliação técnica: **2026-05-23** (typecheck/build OK; Postgres Docker OK; smoke GREAT WALL OK em `:3001`; importação incremental **pausada para revisão** — disco ~97%).
 
 ## Documentos de registro
 
@@ -20,7 +20,7 @@ Não existe `ETAPAS.md` — a série Etapas 1–3 vive só no histórico de conv
 | Série | Até onde chegou | Próximo passo natural |
 |-------|-----------------|------------------------|
 | **Etapas 1–3** | Busca local, dados adicionais, comparação | Encerrada; sem ETAPA 4 formal |
-| **Motor + Infra** | Investigação, grafo, dossiê, busca `/api/search` | Grupo econômico candidato ou dados |
+| **Motor + Infra** | Investigação, grafo, dossiê, busca `/api/search` | Revisão pós-import; produção híbrida |
 | **Autopilot** | 30 tarefas desbloqueadas (incl. MO-003, PDF-002a) | 5 bloqueadas ou nova tarefa no backlog |
 
 ## Git e working tree
@@ -28,9 +28,9 @@ Não existe `ETAPAS.md` — a série Etapas 1–3 vive só no histórico de conv
 | Item | Valor |
 |------|--------|
 | Branch | `main` |
-| Ahead of `origin/main` | **12 commits** (autopilot MO/WS/RB/ER…) |
-| Último commit | `6f453fd` — PDF-002a navegador + atualização de docs de registro |
-| Working tree | Limpo |
+| Ahead of `origin/main` | commits locais (autopilot + import/cobertura) |
+| Último commit (docs/dados) | `ed333f7` — cobertura pós-Estabelecimentos2; ver `git log` |
+| Working tree | ver `git status` |
 
 Commits locais MO/autopilot anteriores a `6f453fd` já incluídos na linha `main` (sincronizar com `origin` via push quando desejado).
 
@@ -156,8 +156,9 @@ Saídas do produto final:
 - grupos econômicos candidatos
 - vínculos diretos e indiretos
 - grafo navegável
+- relatório executivo de investigação
 - achados de investigação
-- força das evidências
+- força das evidências (score oficial; não é risco)
 - dossiê auditável
 - evidências por vínculo
 - limitações da base
@@ -276,6 +277,12 @@ Dados:
 - PostgreSQL local Docker: base pública Receita importada parcialmente.
 - Importadores Receita: ZIP streaming, CSV `;`, encoding `latin1`, batch insert.
 
+## Arquitetura de produção (decidida)
+
+- Usuário final **não importa** base Receita.
+- Modelo **híbrido:** APIs externas + cache + banco próprio **processado** + Supabase (usuários, casos, histórico, relatórios — **não** base bruta Receita no MVP).
+- Ingestão Receita: operação de infra (Docker/banco dedicado), não feature do app.
+
 ## Arquitetura-Alvo
 
 Módulos obrigatórios:
@@ -299,12 +306,12 @@ Produto/MVP:
 - Lista de empresas investigáveis.
 - Seleção de empresa e estabelecimentos.
 - Botão `Investigar vínculos` quando há dado investigável.
-- Relatório de investigação.
-- Resumo Executivo.
+- Relatório / resumo executivo de investigação.
+- Badges **STRONG / PARTIAL / CADASTRAL** (`availability`) por `cnpjBasico`.
 - Força das evidências (`evidenceStrength`) com classificação DECLARADO / INFERIDO por relação.
 - Resolução de entidades inicial: `entityConfidence` em vínculos por sócio + alerta de homônimos.
 - Grafo visual navegável com painel de evidências.
-- Explorar relações por sócio, telefone, e-mail e endereço.
+- Explorar relações por sócio, telefone, e-mail e endereço (**parcial** — limitado pela cobertura local importada).
 - Motor de Achados inicial.
 - Cards de achados por severidade.
 - Evidências por achado e vínculo.
@@ -332,12 +339,14 @@ Dados locais conhecidos:
 | Tabela | Registros |
 |---|---:|
 | `receita_empresas` | 27.628.041 |
-| `receita_estabelecimentos` | 9.606.870 (após Estabelecimentos2; import 3–9 + Sócios em andamento) |
-| `receita_socios` | 1.187.000 |
+| `receita_estabelecimentos` | ≥ 9.606.870 (Estabelecimentos1–2 OK; 3–9 **pausado** — revisar disco) |
+| `receita_socios` | 1.187.000 (parcial; Sócios1–9 **não** retomar sem plano) |
 | `receita_municipios` | 5.572 |
 | `investigation_watch` | 1 (demo) |
 
-Contagem verificada em 2026-05-23 via `docker exec cnpj-receita-postgres psql`.
+Cobertura motor (`backend/reports/coverage-report.json`, pós-Estab2): STRONG **1,79%** | PARTIAL **12,07%** | CADASTRAL **86,14%** | completos **1.257**.
+
+Contagem verificada em 2026-05-23 via `docker exec cnpj-receita-postgres psql` e `npm run coverage:report`.
 
 CNPJs fortes para demo:
 
@@ -357,7 +366,8 @@ Validação recente:
 - **VALIDADO / COMPROVADO** em escala (Serpro / documentos)
 - **Serpro**, **CVM**, **DataJud** (integração — ver backlog bloqueado)
 - **PDF server-side** (`dossier.pdf`) — PDF-002 bloqueado; PDF-002a navegador commitado em `6f453fd`
-- **Cobertura Receita STRONG** — amostra `*0.zip` com baixa interseção entre tabelas
+- **Cobertura STRONG** ainda baixa até sócios 1–9; **município por código** na UI
+- **Importação pausada** — disco ~97%; não expandir base no laptop sem banco dedicado
 - **`App.tsx` monolítico** — refatoração incremental futura
 - **RBAC por papéis** — só spike + middleware hoje
 - **Scheduler** de monitoramento (job manual `watch:diff`)
@@ -373,11 +383,15 @@ Validação recente:
 - Auth middleware (RB-002)
 - Monitoramento watch + diff + UI (MO-001…003)
 
-## Prioridade Imediata (pós-atualização de docs)
+## Prioridade Imediata (revisão 2026-05-23)
 
-1. Smoke test demo: `npm run dev` (front) + `cd backend && npm run dev` + GREAT WALL `62909728`.
-2. Decidir próxima série (dados vs produto vs integração vs refactor UI).
-3. Opcional: `git push` se `main` estiver à frente de `origin/main`.
+1. **Pausar** importação incremental (encerrar processo local se ainda ativo); **não** continuar sem reavaliar disco/infra.
+2. Validar UI GREAT WALL `62909728` (relatório, grafo, badges STRONG/PARTIAL/CADASTRAL).
+3. Corrigir **municípios** (código IBGE → nome).
+4. Fechar **arquitetura de produção** (híbrida; Supabase sem base bruta Receita).
+5. Planejar **banco dedicado / base processada**.
+6. Melhorar **grafo** e **relatório executivo**.
+7. Opcional: `git push` após revisão.
 
 ## Restrições Atuais
 
@@ -412,15 +426,14 @@ Validação recente:
 - Rodar `cd backend && npm run typecheck && npm run build` quando houver alteração backend.
 - Pedir confirmação para ações destrutivas.
 
-### Importação incremental Receita — lote em andamento
+### Importação incremental Receita — **pausada para revisão**
 
 - Data: 2026-05-23
 - Diretório: `/Users/cris/Downloads/2026-05`
-- Baseline STRONG: 1.79% | PARTIAL: 0.09% | CADASTRAL: 98.12%
-- Estabelecimentos: 100.000 | Sócios: 1.187.000
-- Comando: `cd backend && npm run import:incremental -- --dir=/Users/cris/Downloads/2026-05 --from=1 --to=9`
-- Relatório: `npm run coverage:report` → `backend/reports/coverage-report.json`
-- Sincronizar blocos do processo legado (`~/PROJECT_STATE.md`): `cd backend && npm run sync:project-state`
+- **Decisão:** não retomar Estabelecimentos3–9 nem Sócios1–9 até liberar disco e definir banco dedicado.
+- Disco observado: **~97%** (~15 GB livres) — risco de falha em importação.
+- Ferramentas: `npm run import:incremental`, `npm run coverage:report`, `npm run sync:project-state`
+- Relatório: `backend/reports/coverage-report.json`
 
 #### Importação: Estabelecimentos1.zip
 

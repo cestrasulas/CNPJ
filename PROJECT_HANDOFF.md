@@ -18,6 +18,13 @@ Estamos construindo um **Motor de Investigação Empresarial Explicável**.
 
 Função: gerar hipóteses investigativas, vínculos candidatos, evidências rastreáveis e dossiês de apoio à decisão a partir de bases públicas e, futuramente, fontes pagas sob demanda.
 
+## Decisão de produto (registro)
+
+- O sistema **não é consulta CNPJ** (consulta legada permanece, mas o produto é investigação).
+- Produto: **Motor de Investigação Empresarial Explicável**.
+- **Entradas:** CNPJ, razão social, sócio, endereço, telefone, e-mail.
+- **Saídas:** vínculos candidatos, grupos econômicos candidatos, grafo, relatório executivo, achados, força das evidências (score oficial do motor), dossiê e limitações da base.
+
 ## Posicionamento do Produto
 
 Camada 1 — Base pública / baixo custo:
@@ -132,8 +139,9 @@ Saídas:
 - grupos econômicos candidatos
 - vínculos diretos e indiretos
 - grafo navegável
+- relatório executivo de investigação
 - achados de investigação
-- força das evidências
+- força das evidências (score do motor; não é score de risco)
 - dossiê auditável
 - evidências por vínculo
 - limitações da base
@@ -167,6 +175,14 @@ Dados:
 - PostgreSQL local Docker: base Receita Federal parcial.
 - Importadores Receita: ZIP streaming, CSV `;`, encoding `latin1`, batch insert.
 
+## Arquitetura de produção (decidida)
+
+- O **usuário final não importa** a base bruta da Receita Federal.
+- Arquitetura recomendada **híbrida:** APIs externas + cache + **banco próprio processado** + Supabase para usuários, histórico, casos e relatórios salvos.
+- **Supabase não deve** armazenar a base bruta gigante da Receita no MVP.
+- Base Receita (ingestão, normalização, vínculos) fica em **backend/infra própria** ou **banco dedicado** operado pelo time — não no cliente.
+- Importação ZIP/CSV é **operação de infra/dev**, não feature do produto.
+
 ## Arquitetura-Alvo
 
 Módulos obrigatórios:
@@ -193,6 +209,19 @@ O projeto evoluiu em **três linhas** que não compartilham um único arquivo de
 Registro detalhado de séries e decisões: `PROJECT_STATE.md` (seção *Linhas de trabalho*).
 
 ## Estado Atual (2026-05-23)
+
+### MVP — o que funciona hoje
+
+| Capacidade | Status |
+|------------|--------|
+| Busca Receita / investigativa unificada | OK |
+| Consulta CNPJ (legado) | OK |
+| Relatório executivo de investigação | OK |
+| Grafo inicial + `depth=2` | OK |
+| Achados de investigação | OK |
+| Badges STRONG / PARTIAL / CADASTRAL (`availability`) | OK |
+| Explorar relações (sócio, telefone, e-mail, endereço) | OK / parcial (depende cobertura local) |
+| Dossiê HTML + PDF via navegador | OK |
 
 ### Produto implementado
 
@@ -255,18 +284,21 @@ Registro detalhado de séries e decisões: `PROJECT_STATE.md` (seção *Linhas d
 
 | Tabela | Registros |
 |---|---:|
-| `receita_empresas` | 27.628.041 |
-| `receita_estabelecimentos` | 100.000 |
-| `receita_socios` | 1.187.000 |
+| `receita_empresas` | 27.628.041 (completo) |
+| `receita_estabelecimentos` | ~9,6M+ (import incremental 1–9 em curso ou pausado — ver `PROJECT_STATE.md`) |
+| `receita_socios` | 1.187.000 (parcial; partições adicionais pendentes) |
 | `receita_municipios` | 5.572 |
 
-Cobertura atual:
+Cobertura do motor (último `coverage-report.json`, pós-Estabelecimentos1–2):
 
-- STRONG: poucos CNPJs com interseção entre empresas, estabelecimentos e sócios.
-- PARTIAL: empresas com estabelecimento, mas sem sócio importado correspondente.
-- CADASTRAL: somente empresa.
+- **STRONG** 1,79% — empresa com sócio na base (não exige estabelecimento).
+- **PARTIAL** 12,07% — empresa com estabelecimento, sem sócio correspondente.
+- **CADASTRAL** 86,14% — só cadastro de empresa.
+- `cnpjs_completos` (empresa + estab + sócio): 1.257.
 
-Causa da baixa cobertura forte: partições `*0.zip` de Empresas, Estabelecimentos e Sócios têm sobreposição pequena.
+Ferramentas: `npm run coverage:report`, `npm run import:incremental` (somente infra).
+
+**Importação:** empresas já carregadas; estabelecimentos em expansão incremental; sócios ainda parciais. **Disco ~97% (~15 GB livres)** — **não continuar importação sem reavaliar espaço e arquitetura de banco dedicado.**
 
 CNPJs úteis para demo:
 
@@ -287,8 +319,9 @@ CNPJs úteis para demo:
 
 **Dados**
 
-- Cobertura **STRONG** baixa: partições `*0.zip` de empresas/estabelecimentos/sócios com pouca interseção.
-- Importação adicional só com justificativa de produto (não expandir base por volume).
+- Cobertura **STRONG** ainda baixa até completar sócios 1–9 (hoje ~1,19M sócios vs ~27M empresas).
+- Municípios exibidos por **código IBGE** em parte da UI — corrigir join/nome.
+- Importação adicional **pausada por decisão** enquanto disco crítico; retomar só com banco dedicado ou espaço liberado.
 
 **Engenharia**
 
@@ -297,15 +330,15 @@ CNPJs úteis para demo:
 - Monitoramento sem scheduler/e-mail (job manual `npm run watch:diff`).
 - Auth no frontend ainda não envia JWT nas rotas protegidas (ok enquanto `AUTH_DISABLED=true`).
 
-## Prioridade Imediata (próxima decisão de produto)
+## Prioridade Imediata (revisão 2026-05-23)
 
-1. **Validar demo ponta a ponta** — GREAT WALL `62909728` com backend + frontend + Docker.
-2. **Escolher próxima série:**
-   - **Dados:** alinhar amostra Receita (mesma partição ou CNPJs demo) **ou**
-   - **Produto:** grupo econômico candidato + força agregada **ou**
-   - **Integração:** Serpro / CVM / DataJud (desbloquear backlog) **ou**
-   - **Engenharia:** fatiar `App.tsx` sem mudar comportamento.
-3. Push para `origin/main` se houver commits locais à frente do remoto.
+1. **Pausar importação** se disco permanecer crítico; não retomar lote 3–9 / Sócios sem plano de infra.
+2. **Validar UI** com GREAT WALL `62909728` (busca, relatório, grafo, badges, dossiê).
+3. **Corrigir municípios** (código → nome legível na busca/estabelecimentos).
+4. **Definir arquitetura de produção** (APIs + cache + banco processado; Supabase só operacional).
+5. **Planejar banco dedicado / base processada** (fora do Supabase; fora do laptop se possível).
+6. **Melhorar grafo e relatório** (grupo econômico candidato, UX de exploração).
+7. Opcional: `git push` quando `main` estiver estável após revisão.
 
 ## Restrições
 
