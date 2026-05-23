@@ -3,33 +3,113 @@
 ## Direção Oficial
 
 Não estamos construindo um buscador de CNPJ.
+Não estamos construindo um "Sniper privado".
+Não estamos prometendo UBO automático.
+Não estamos prometendo grupo econômico definitivo.
+Não estamos prometendo investigação patrimonial.
 
-Estamos construindo um **Motor de Investigação Empresarial explicável, auditável e orientado a decisão**.
+Estamos construindo um **Motor de Investigação Empresarial Explicável**.
 
-O produto deve transformar dados públicos e consultas externas em relações verificáveis, achados sustentados por evidências e dossiês úteis para análise empresarial.
+Função do produto: gerar hipóteses investigativas, vínculos candidatos, evidências rastreáveis e dossiês de apoio à decisão a partir de bases públicas e, futuramente, fontes pagas sob demanda.
 
-## Produto Final
+## Posicionamento por Camadas
 
-Entradas previstas:
+Camada 1 — Base pública / baixo custo:
 
-- CNPJ
-- razão social
-- sócio
-- endereço
-- telefone
-- e-mail
+- Receita Federal CNPJ público
+- CVM Dados Abertos
+- DataJud
+- outras fontes abertas futuras
 
-Saídas esperadas:
+Entrega:
 
-- empresas relacionadas
-- grupos empresariais
-- vínculos diretos e indiretos
-- grafo navegável
-- achados de investigação
-- score explicável
-- dossiê auditável
-- evidências por vínculo
-- monitoramento futuro
+- vínculos candidatos
+- grupos econômicos candidatos
+- força das evidências
+- grafo
+- dossiê inicial
+- limitações claras
+
+Camada 2 — Precisão sob demanda:
+
+- Serpro Consulta CNPJ
+- Infosimples
+- juntas comerciais
+- outras APIs pagas
+
+Entrega:
+
+- enriquecimento
+- validação
+- aumento de confiança
+- redução de falso positivo
+
+Camada 3 — Enterprise futura:
+
+- BigDataCorp
+- Orbis
+- Sayari
+- ONR
+- vendors de sanções/mídia/PEP
+
+Entrega:
+
+- due diligence mais robusta
+- ownership internacional
+- camadas patrimoniais/processuais
+- compliance avançado
+
+## Linguagem Obrigatória
+
+Evitar linguagem conclusiva sem documento.
+
+Trocar:
+
+- "risco alto" por "força das evidências alta"
+- "grupo econômico identificado" por "grupo econômico candidato"
+- "beneficiário final" por "estrutura societária conhecida"
+- "comprovado" por "declarado", "inferido" ou "validado", salvo documento/certidão específica
+
+Usar:
+
+- evidência declarada
+- evidência inferida
+- evidência validada
+- evidência comprovada documentalmente apenas quando houver documento
+
+## Classificação Oficial de Evidência
+
+DECLARADO:
+Dado consta em fonte cadastral/oficial, como Receita pública.
+
+INFERIDO:
+Relação derivada por regra do sistema, como mesmo telefone, mesmo endereço ou padrão recorrente.
+
+VALIDADO:
+Relação reforçada por fonte adicional, como Serpro ou outra API complementar.
+
+COMPROVADO:
+Relação sustentada por documento ou certidão específica.
+
+## Score Oficial
+
+Não usar "score de risco" como conceito do produto.
+
+Usar **Força das evidências**:
+
+- BAIXA
+- MÉDIA
+- ALTA
+
+Sempre deixar claro que o score mede força e consistência das evidências disponíveis, não conclusão jurídica, patrimonial ou de controle societário.
+
+## Limitações Sempre Visíveis
+
+- CPF mascarado na base pública.
+- Ausência de percentuais societários.
+- Ausência de atos societários.
+- Ausência de UBO formal.
+- Ausência de prova patrimonial.
 
 ## Stack Atual
 
@@ -41,93 +121,44 @@ Saídas esperadas:
 
 ## Arquitetura Atual
 
-Frontend:
-
 - `src/App.tsx` ainda concentra a UI principal.
 - `src/services/api.ts` centraliza HTTP.
 - `src/services/receita.ts` acessa busca e estabelecimentos Receita.
-- `src/services/investigation.ts` acessa relatório, achados e disponibilidade de investigação.
-- Consulta CNPJ antiga continua preservada via backend.
-
-Backend:
-
-- `backend/src/server.ts` inicia Fastify.
-- `backend/src/routes/companies.routes.ts` mantém consulta CNPJ e relações antigas.
-- `backend/src/routes/receita.routes.ts` expõe busca Receita, investigáveis e estabelecimentos.
-- `backend/src/routes/investigation.routes.ts` expõe relatório de investigação.
-- `backend/src/services/investigation.service.ts` contém motor inicial de vínculos, achados, score e grafo.
-- `backend/src/repositories/receita.repository.ts` consulta PostgreSQL local da Receita.
-
-## Arquitetura-Alvo
-
-Módulos obrigatórios do produto:
-
-- Núcleo de dados: ingestão, cache, normalização e proveniência de fontes.
-- Resolução de entidades: consolidar empresas, sócios, contatos e endereços equivalentes.
-- Motor de vínculos: detectar relações diretas e indiretas com motivo e fonte.
-- Motor de achados: transformar vínculos em conclusões operacionais explicáveis.
-- Score explicável: calcular atenção/risco com pontos e razões auditáveis.
-- Dossiê probatório: gerar HTML/PDF com evidências e trilha de auditoria.
-- Monitoramento: acompanhar empresas, sócios, contatos e mudanças relevantes.
-- Workspace de casos: organizar investigações, histórico, anotações e decisões.
-
-## Estado Atual
-
-Implementado:
-
-- Frontend React/Vite.
-- Backend Fastify/TypeScript.
-- Supabase como cache de consultas CNPJ.
-- PostgreSQL local com base Receita parcial.
-- Importadores Receita para empresas, estabelecimentos, sócios e municípios.
-- Busca Receita por razão social.
-- Investigação por CNPJ básico.
-- Relações por sócio, telefone, e-mail, endereço e matriz/filiais.
-- Grafo visual funcional.
-- Resumo Executivo.
-- Motor de Achados inicial.
-- `investigationScore` explicável.
-- Cards de achados por severidade.
-- Evidências iniciais por achado.
-
-## Lacunas Críticas
-
-- Evidência por vínculo individual, com fonte e campo originador.
-- Dossiê HTML/PDF auditável.
-- Busca por sócio, endereço, telefone e e-mail.
-- Normalização mais robusta de municípios e endereços.
-- Resolução robusta de entidades.
-- Score de grupo econômico.
-- Monitoramento recorrente.
-- Workspace de casos.
+- `src/services/investigation.ts` acessa relatório, achados e disponibilidade.
+- `backend/src/routes/investigation.routes.ts` expõe investigação.
+- `backend/src/services/investigation.service.ts` contém motor inicial de vínculos, achados, força das evidências e grafo.
 
 ## Prioridade Imediata
 
-1. Evidência por vínculo.
-2. Dossiê HTML simples.
-3. Grafo navegável.
-4. Busca unificada por sócio/endereço/telefone/e-mail.
-5. Normalização de municípios/endereço.
+1. Refatorar score para "força das evidências".
+2. Adicionar classificação DECLARADO / INFERIDO / VALIDADO / COMPROVADO.
+3. Melhorar dossiê HTML com seção "Limitações da base".
+4. Grafo navegável.
+5. Busca unificada por CNPJ, razão social, sócio, endereço, telefone e e-mail.
+6. Camada Serpro opcional sob demanda.
+7. CVM e DataJud como fontes abertas complementares.
 
 ## Restrições
 
-- Não voltar a tratar o produto como consulta CNPJ.
-- Não adicionar campos só por adicionar.
-- Não importar mais base sem justificativa de produto.
-- Não fazer inferências sem evidência.
-- Toda relação precisa ter motivo e fonte.
+- Não usar linguagem conclusiva sem evidência documental.
+- Não chamar relação inferida de prova.
+- Não prometer UBO com base pública.
+- Não prometer investigação patrimonial.
+- Não vender como "Sniper privado".
+- Sempre diferenciar dado declarado, inferido, validado e comprovado.
+- Toda relação precisa ter fonte, motivo, confiança e limitação quando aplicável.
+- Não adicionar campos por adicionar.
+- Não importar mais dados sem justificativa de produto.
+- Não fazer inferências fortes sobre pessoas físicas com nome comum e CPF mascarado.
 - Preservar MVP incremental.
-- Não expor API keys no frontend.
-- Não reescrever `App.tsx` inteiro sem necessidade.
-- Não trocar arquitetura para Neo4j/Elastic/microservices nesta fase.
 
 ## Instruções Para Agentes
 
 - Ler `CLAUDE.md`, `PROJECT_HANDOFF.md` e `PROJECT_STATE.md` antes de codar.
+- Antes de codar, verificar se a tarefa aumenta explicabilidade, evidência, dossiê, busca ou grafo.
 - Não reimplementar funcionalidades existentes.
 - Economizar contexto: mexer apenas no escopo pedido.
 - Implementar por etapas pequenas.
-- Sempre rodar `npm run typecheck`/`npm run build` quando houver código.
+- Rodar build/typecheck quando houver código.
 - Para backend, rodar `cd backend && npm run typecheck && npm run build` quando houver código backend.
 - Pedir confirmação para ações destrutivas.
-- Não importar novos arquivos da Receita sem pedido explícito e justificativa de produto.

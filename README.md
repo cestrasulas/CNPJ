@@ -1,10 +1,12 @@
-# Motor de Investigação Empresarial
+# Motor de Investigação Empresarial Explicável
 
 Este projeto não é um buscador de CNPJ.
+Não é um "Sniper privado".
+Não promete UBO automático.
+Não promete grupo econômico definitivo.
+Não promete investigação patrimonial.
 
-É um **Motor de Investigação Empresarial explicável, auditável e orientado a decisão**.
-
-O objetivo é transformar dados cadastrais, dados públicos da Receita Federal e consultas externas em vínculos empresariais, achados interpretáveis, score explicável e dossiês auditáveis.
+O objetivo é gerar hipóteses investigativas, vínculos candidatos, evidências rastreáveis e dossiês de apoio à decisão a partir de bases públicas e, futuramente, fontes pagas sob demanda.
 
 ## Entradas
 
@@ -18,14 +20,77 @@ O objetivo é transformar dados cadastrais, dados públicos da Receita Federal e
 ## Saídas
 
 - empresas relacionadas
-- grupos empresariais
+- grupos econômicos candidatos
 - vínculos diretos e indiretos
 - grafo navegável
 - achados de investigação
-- score explicável
+- força das evidências
 - dossiê auditável
 - evidências por vínculo
+- limitações da base
 - monitoramento futuro
+
+## Posicionamento
+
+Camada 1 — Base pública / baixo custo:
+
+- Receita Federal CNPJ público
+- CVM Dados Abertos
+- DataJud
+- outras fontes abertas futuras
+
+Entrega: vínculos candidatos, grupos econômicos candidatos, força das evidências, grafo, dossiê inicial e limitações claras.
+
+Camada 2 — Precisão sob demanda:
+
+- Serpro Consulta CNPJ
+- Infosimples
+- juntas comerciais
+- outras APIs pagas
+
+Entrega: enriquecimento, validação, aumento de confiança e redução de falso positivo.
+
+Camada 3 — Enterprise futura:
+
+- BigDataCorp
+- Orbis
+- Sayari
+- ONR
+- vendors de sanções/mídia/PEP
+
+Entrega: due diligence mais robusta, ownership internacional, camadas patrimoniais/processuais e compliance avançado.
+
+## Classificação de Evidência
+
+DECLARADO:
+Dado consta em fonte cadastral/oficial, como Receita pública.
+
+INFERIDO:
+Relação derivada por regra do sistema, como mesmo telefone, mesmo endereço ou padrão recorrente.
+
+VALIDADO:
+Relação reforçada por fonte adicional, como Serpro ou outra API complementar.
+
+COMPROVADO:
+Relação sustentada por documento ou certidão específica.
+
+## Força das Evidências
+
+O produto deve usar "força das evidências", não "score de risco":
+
+- BAIXA
+- MÉDIA
+- ALTA
+
+Esse indicador não comprova UBO, grupo econômico definitivo, patrimônio ou conclusão jurídica.
+
+## Limitações Sempre Visíveis
+
+- CPF mascarado na base pública.
+- Ausência de percentuais societários.
+- Ausência de atos societários.
+- Ausência de UBO formal.
+- Ausência de prova patrimonial.
 
 ## Arquitetura Atual
 
@@ -62,7 +127,7 @@ Implementado:
 - Relações por sócio, telefone, e-mail, endereço e matriz/filiais.
 - Resumo Executivo.
 - Motor de Achados inicial.
-- Score explicável.
+- Indicador técnico atual de score, a ser tratado como força das evidências.
 - Cards por severidade.
 - Evidências iniciais por achado.
 - Grafo visual.
@@ -76,18 +141,20 @@ Módulos obrigatórios:
 - Resolução de entidades.
 - Motor de vínculos.
 - Motor de achados.
-- Score explicável.
+- Força das evidências.
 - Dossiê probatório.
 - Monitoramento.
 - Workspace de casos.
 
 ## Prioridade Imediata
 
-1. Evidência por vínculo.
-2. Dossiê HTML simples.
-3. Grafo navegável.
-4. Busca unificada por sócio/endereço/telefone/e-mail.
-5. Normalização de municípios/endereço.
+1. Refatorar score para "força das evidências".
+2. Adicionar classificação DECLARADO / INFERIDO / VALIDADO / COMPROVADO.
+3. Melhorar dossiê HTML com seção "Limitações da base".
+4. Grafo navegável.
+5. Busca unificada por CNPJ, razão social, sócio, endereço, telefone e e-mail.
+6. Camada Serpro opcional sob demanda.
+7. CVM e DataJud como fontes abertas complementares.
 
 ## Comandos
 
@@ -125,8 +192,14 @@ curl "http://localhost:3001/api/investigation/company/62909728"
 ## Restrições
 
 - Não voltar a tratar o produto como consulta CNPJ.
+- Não vender como "Sniper privado".
+- Não prometer UBO com base pública.
+- Não prometer investigação patrimonial.
+- Não chamar relação inferida de prova.
+- Não usar linguagem conclusiva sem evidência documental.
 - Não adicionar campos só por adicionar.
 - Não importar mais base sem justificativa de produto.
-- Não fazer inferências sem evidência.
-- Toda relação precisa ter motivo e fonte.
+- Não fazer inferências fortes sobre pessoas físicas com nome comum e CPF mascarado.
+- Sempre diferenciar dado declarado, inferido, validado e comprovado.
+- Toda relação precisa ter fonte, motivo, confiança e limitação quando aplicável.
 - Preservar MVP incremental.

@@ -3,10 +3,14 @@
 ## Visão do Produto
 
 Este projeto não é um buscador de CNPJ.
+Não é um "Sniper privado".
+Não promete UBO automático.
+Não promete grupo econômico definitivo.
+Não promete investigação patrimonial.
 
-O objetivo oficial é construir um **Motor de Investigação Empresarial explicável, auditável e orientado a decisão**.
+O objetivo oficial é construir um **Motor de Investigação Empresarial Explicável**.
 
-O sistema deve receber identificadores empresariais, resolver entidades relacionadas, explicar vínculos, gerar achados com evidências e produzir dossiês que ajudem o usuário a decidir o próximo passo de uma investigação.
+O sistema deve gerar hipóteses investigativas, vínculos candidatos, evidências rastreáveis e dossiês de apoio à decisão a partir de bases públicas e, futuramente, fontes pagas sob demanda.
 
 Entradas do produto final:
 
@@ -20,14 +24,103 @@ Entradas do produto final:
 Saídas do produto final:
 
 - empresas relacionadas
-- grupos empresariais
+- grupos econômicos candidatos
 - vínculos diretos e indiretos
 - grafo navegável
 - achados de investigação
-- score explicável
+- força das evidências
 - dossiê auditável
 - evidências por vínculo
+- limitações da base
 - monitoramento futuro
+
+## Posicionamento por Camadas
+
+Camada 1 — Base pública / baixo custo:
+
+- Receita Federal CNPJ público
+- CVM Dados Abertos
+- DataJud
+- outras fontes abertas futuras
+
+Entrega:
+
+- vínculos candidatos
+- grupos econômicos candidatos
+- força das evidências
+- grafo
+- dossiê inicial
+- limitações claras
+
+Camada 2 — Precisão sob demanda:
+
+- Serpro Consulta CNPJ
+- Infosimples
+- juntas comerciais
+- outras APIs pagas
+
+Entrega:
+
+- enriquecimento
+- validação
+- aumento de confiança
+- redução de falso positivo
+
+Camada 3 — Enterprise futura:
+
+- BigDataCorp
+- Orbis
+- Sayari
+- ONR
+- vendors de sanções/mídia/PEP
+
+Entrega:
+
+- due diligence mais robusta
+- ownership internacional
+- camadas patrimoniais/processuais
+- compliance avançado
+
+## Linguagem Oficial
+
+Trocar linguagem conclusiva por linguagem de evidência:
+
+- "risco alto" -> "força das evidências alta"
+- "grupo econômico identificado" -> "grupo econômico candidato"
+- "beneficiário final" -> "estrutura societária conhecida"
+- "comprovado" -> "declarado", "inferido" ou "validado", exceto quando houver documento/certidão específica
+
+## Classificação Oficial de Evidência
+
+DECLARADO:
+Dado consta em fonte cadastral/oficial, como Receita pública.
+
+INFERIDO:
+Relação derivada por regra do sistema, como mesmo telefone, mesmo endereço ou padrão recorrente.
+
+VALIDADO:
+Relação reforçada por fonte adicional, como Serpro ou outra API complementar.
+
+COMPROVADO:
+Relação sustentada por documento ou certidão específica.
+
+## Score Oficial
+
+O conceito de "score de risco" deve ser substituído por **Força das evidências**:
+
+- BAIXA
+- MÉDIA
+- ALTA
+
+Esse indicador mede a consistência das evidências disponíveis, não conclusão jurídica, patrimonial, societária final ou UBO.
+
+## Limitações Sempre Visíveis
+
+- CPF mascarado na base pública.
+- Ausência de percentuais societários.
+- Ausência de atos societários.
+- Ausência de UBO formal.
+- Ausência de prova patrimonial.
 
 ## Arquitetura Atual
 
@@ -62,8 +155,8 @@ Módulos obrigatórios:
 - Núcleo de dados: fontes, importação, cache, normalização, proveniência e qualidade.
 - Resolução de entidades: deduplicar e consolidar empresas, sócios, endereços, telefones e e-mails.
 - Motor de vínculos: detectar relações diretas e indiretas, sempre com motivo e fonte.
-- Motor de achados: converter vínculos em conclusões operacionais explicáveis.
-- Score explicável: pontuação com nível, pontos e razões auditáveis.
+- Motor de achados: converter vínculos em hipóteses investigativas explicáveis.
+- Força das evidências: nível BAIXA/MÉDIA/ALTA, motivos, fontes e limitações.
 - Dossiê probatório: HTML/PDF com evidências, trilha de origem e resumo decisório.
 - Monitoramento: acompanhar mudanças em empresas, sócios, contatos e novos vínculos.
 - Workspace de casos: organizar investigações, favoritos, notas, status e histórico.
@@ -82,9 +175,9 @@ Produto/MVP:
 - Grafo visual funcional.
 - Explorar relações por sócio, telefone, e-mail e endereço.
 - Motor de Achados inicial.
-- `investigationScore` explicável.
+- `investigationScore` técnico atual, a ser renomeado conceitualmente para "força das evidências".
 - Cards de achados por severidade.
-- Evidências iniciais por achado.
+- Evidências iniciais por achado e vínculo.
 
 Backend:
 
@@ -117,34 +210,44 @@ CNPJs fortes para demo:
 Validação recente:
 
 - `62909728` retornou `summary`, `relations`, `graph`, `findings` e `investigationScore`.
-- GREAT WALL retornou 22 relações, 2 achados e score MEDIUM/55.
+- GREAT WALL retornou 22 relações, 2 achados e indicador técnico MEDIUM/55. A linguagem de produto deve tratar isso como força das evidências, não risco.
 
 ## Lacunas Críticas
 
-- Evidência por vínculo individual com fonte, campo e valor.
-- Dossiê HTML/PDF.
+- Classificação DECLARADO / INFERIDO / VALIDADO / COMPROVADO.
+- Dossiê HTML com seção "Limitações da base".
 - Busca por sócio, endereço, telefone e e-mail.
 - Normalização de municípios e endereços.
 - Resolução robusta de entidades.
-- Score de grupo econômico.
+- Força das evidências por grupo econômico candidato.
+- Camada Serpro opcional sob demanda.
+- CVM e DataJud como fontes abertas complementares.
 - Monitoramento.
 - Workspace de casos.
 
 ## Prioridade Imediata
 
-1. Evidência por vínculo.
-2. Dossiê HTML simples.
-3. Grafo navegável.
-4. Busca unificada por sócio/endereço/telefone/e-mail.
-5. Normalização de municípios/endereço.
+1. Refatorar score para "força das evidências".
+2. Adicionar classificação DECLARADO / INFERIDO / VALIDADO / COMPROVADO.
+3. Melhorar dossiê HTML com seção "Limitações da base".
+4. Grafo navegável.
+5. Busca unificada por CNPJ, razão social, sócio, endereço, telefone e e-mail.
+6. Camada Serpro opcional sob demanda.
+7. CVM e DataJud como fontes abertas complementares.
 
 ## Restrições Atuais
 
 - Não voltar a tratar o produto como consulta CNPJ.
+- Não vender como "Sniper privado".
+- Não prometer UBO com base pública.
+- Não prometer investigação patrimonial.
+- Não chamar relação inferida de prova.
+- Não usar linguagem conclusiva sem evidência documental.
 - Não adicionar campos só por adicionar.
 - Não importar mais base sem justificativa de produto.
-- Não fazer inferências sem evidência.
-- Toda relação precisa ter motivo e fonte.
+- Não fazer inferências fortes sobre pessoas físicas com nome comum e CPF mascarado.
+- Sempre diferenciar dado declarado, inferido, validado e comprovado.
+- Toda relação precisa ter fonte, motivo, confiança e limitação quando aplicável.
 - Preservar MVP incremental.
 - Não reimplementar funcionalidades existentes.
 - Não alterar contratos sem necessidade.
@@ -153,9 +256,13 @@ Validação recente:
 ## Instruções Para Agentes
 
 - Ler `CLAUDE.md`, `PROJECT_HANDOFF.md` e `PROJECT_STATE.md` antes de codar.
+- Antes de codar, verificar se a tarefa aumenta explicabilidade, evidência, dossiê, busca ou grafo.
 - Não reanalisar arquitetura quando a tarefa for pontual.
 - Economizar contexto.
 - Implementar por etapas pequenas.
+- Não adicionar campos por adicionar.
+- Não importar mais dados sem justificativa de produto.
+- Não fazer inferências fortes sobre pessoas físicas com nome comum e CPF mascarado.
 - Rodar `npm run typecheck` e `npm run build` quando houver alteração frontend.
 - Rodar `cd backend && npm run typecheck && npm run build` quando houver alteração backend.
 - Pedir confirmação para ações destrutivas.
